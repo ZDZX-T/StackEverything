@@ -13,7 +13,7 @@ With this system, you can track where each item is, like finding your clothes in
 
 ## Features
 * **📁Easy-to-use UI**  
-The main interface is designed similarly to Windows Explorer, which ensures that users are familiar with the operations such as directory switching.
+The main interface is designed similarly to Windows Explorer, which ensures that users are familiar with the operations such as directory switching.  
 ![UI展示](/i18n/img/README_UI.gif)  
 
 * **🕹️Intuitive Interaction**  
@@ -29,7 +29,7 @@ You can freely add classes and properties for items, making it easier to search 
 ![分类与属性](/i18n/img/README_attributes_en.png)  
 
 * **🔎Convenience Item Search**  
-You can search items by name, class, whether they are virtual, and expiration date. When searching by class, you can further filter results by properties. The fields displayed after filtering can also be customized.
+You can search items by name, class, whether they are virtual, and expiration date. When searching by class, you can further filter results by properties. The fields displayed after filtering can also be customized.  
 ![物品检索](/i18n/img/README_search_en.png)  
 
 * **🛜Access Anywhere on Local Network**  
