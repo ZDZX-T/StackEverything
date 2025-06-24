@@ -1,6 +1,8 @@
 /logs/
+/packedRelease/
 /user_image/
 /请勿上传git/
 /_StackEverything.db
+/packRelease.py
 
 /.idea/

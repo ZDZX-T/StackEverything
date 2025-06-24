@@ -1,6 +1,7 @@
 # 堆叠世界
 
 [README in English](/i18n/README_en.md)
+[在github上查看](https://github.com/ZDZX-T/StackEverything) | [在gitee上查看](https://gitee.com/ZDZX-T/StackEverything)  
 
 
 ## 简介

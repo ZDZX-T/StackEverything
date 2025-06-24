@@ -205,7 +205,7 @@ def get_breadcrumb_path(id):  # 根据id返回路径
                 resolve(data)
             else:
                 # reject(data['message'])
-                my_alert(i18n['oa_find_no_id_sw2root_1' + str(id) + i18n['oa_find_no_id_sw2root_2']])  # (f'未找到id为{id}的元素，路径已切换至根目录')
+                my_alert(i18n['oa_find_no_id_sw2root_1'] + str(id) + i18n['oa_find_no_id_sw2root_2'])  # (f'未找到id为{id}的元素，路径已切换至根目录')
                 resolve([('/', 0)])
         ajax.get(f'/operating_area/get_breadcrumb_path', data={'id': id}, oncomplete=on_complete)
     return Promise(executor)

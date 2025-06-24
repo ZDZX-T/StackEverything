@@ -1,6 +1,7 @@
 # StackEverything
 
 [切换至中文](../README.md)
+[view on github](https://github.com/ZDZX-T/StackEverything) | [view on gitee](https://gitee.com/ZDZX-T/StackEverything)  
 
 
 ## Introduction
