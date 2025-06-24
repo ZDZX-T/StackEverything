@@ -1,0 +1,70 @@
+from browser import document, window, html, ajax, timer # type: ignore
+from universal import my_alert, my_success, disable_selection, enable_selection, config, Promise
+import json
+
+
+scroll_spy = None
+
+def refresh_scrollspy():  # 刷新滚动间谍
+    global scroll_spy
+    Bootstrap = window.bootstrap
+    if hasattr(Bootstrap, 'ScrollSpy'):
+        if scroll_spy is None:
+            # 添加滚动监听
+            Bootstrap = window.bootstrap
+            scroll_container = document.querySelector("#help_content_area")
+            config = {
+                "target": "#help_nav_area",
+                "offset": 56+20  # 根据顶部导航栏高度调整偏移量
+            }
+            scroll_spy = Bootstrap.ScrollSpy.new(scroll_container, config)
+        else:
+        # 刷新 ScrollSpy 实例
+            scroll_spy.refresh()
+
+
+############
+def help_page_set_max_height(event=None):  # 重设help页面高度
+    div_padding = int(window.getComputedStyle(document['page_help']).paddingBottom[:-2])  # paddingBottom读到的是字符串YYpx
+    window_height = window.innerHeight
+    if hasattr(window, 'visualViewport'):
+        window_height = min(window.visualViewport.height, window_height)
+        # print(f'DGB: innerHeight:{window.innerHeight} visualViewport.height:{window.visualViewport.height}')
+    for i in ['help_content_area', 'help_nav_area']:
+        target = document[i]
+        rect = target.getBoundingClientRect()
+        target.style.maxHeight = f'{window_height - rect.top - div_padding*2 - 1}px'
+        target.style.height = f'{window_height - rect.top - div_padding*2 - 1}px'
+
+
+def help_page_on_visible(mutations, observer):  # 直接加载页面时此函数失效
+    for mutation in mutations:
+        if mutation.type == 'attributes' and mutation.attributeName == 'style':
+            div = mutation.target
+            if window.getComputedStyle(div).display != 'none': 
+                help_page_on_vivible_then()
+            else:
+                # print("DBG: 物品浏览区不可见")
+                # 如果需要停止观察，可以在这里调用 observer.disconnect()
+                pass
+
+
+def help_page_on_vivible_then():  # 页面变可见时要干的事
+    print("DBG: 帮助页面变为可见")
+    refresh_scrollspy()
+    help_page_set_max_height()
+    window.onresize = help_page_set_max_height
+
+
+def init_help_page():
+    on_visible_target = document['page_help']
+    observer = window.MutationObserver.new(help_page_on_visible)
+    observer.observe(on_visible_target, {'attributes': True, 'attributeFilter': ['style']})
+    if window.getComputedStyle(on_visible_target).display != 'none':
+        help_page_on_vivible_then()
+
+    # 处理懒加载导致滚动间谍位置不对的问题
+    lazy_imgs = document.querySelectorAll('img.lazy-load')
+    for img in lazy_imgs:
+        img.addEventListener('load', lambda ev: refresh_scrollspy())
+init_help_page()

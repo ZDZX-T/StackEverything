@@ -1,0 +1,483 @@
+from browser import document, window, html, ajax, bind # type: ignore
+from universal import my_alert, my_success, add_is_invalid, remove_is_invalid, add_disabled, remove_disabled
+import json
+from i18n import i18n
+
+
+sortable_instance = None  # 拖拽排序用
+show_property_add_pop_up = True  # 在需要显示属性详情界面时，这个值会变为False
+
+#############################################################################################################################
+#property
+def get_property_info(target_property):  # 拉取属性的详细信息
+    # 首先需要将界面属性改掉
+    document['add_change_properties_form_title'].text = i18n['ma_modify_property']  # '修改属性'
+    add_disabled('new_property_name')
+    add_disabled('new_property_form')
+    document['btn_property_add_change'].unbind()
+    document['btn_property_add_change'].bind('click', lambda ev: properties_change())
+    # 实际信息拉取
+    def on_complete(req):
+        global show_property_add_pop_up
+        if req.status != 200:
+            my_alert(i18n['vi_load_properties_failed'])  # "从数据库加载属性失败！"
+            return
+        data = json.loads(req.text)
+        # print(f'DBG: 属性详细信息{data}')
+        if data['status'] == 'success':
+            document['new_property_name'].value = target_property
+            document['new_property_form'].value = data['form']
+            document['new_property_range'].value = data['range']
+            document['new_property_comment'].value = data['comment']
+            range_on_blur()  # 更新下预览
+        show_property_add_pop_up = False
+        document['btn_show_properties_add'].click() # 借按钮触发弹窗
+        show_property_add_pop_up = True
+    ajax.post('/manage_attributes/get_property_info', data=json.dumps({'target_class': get_active_class().text, 'target_property': target_property}), 
+              headers={"Content-Type": "application/json"}, oncomplete=on_complete)
+
+
+def generate_properties_item(target_property):  # 生成properties条目
+    new_item = html.DIV(target_property, Class='list-group-item list-group-item-action px-4')
+    new_item.bind('click', lambda ev, target=target_property:get_property_info(target))
+    return new_item
+
+
+def properties_change():  # 属性修改
+    add_disabled('btn_property_add_change')
+    remove_is_invalid('new_property_range')
+    target_property = document['new_property_name'].value
+    target_property_form = document['new_property_form'].value
+    new_property_range = document['new_property_range'].value
+    new_property_comment = document['new_property_comment'].value
+    if target_property_form == 'num':
+        if check_min_max(new_property_range) == None:
+            add_is_invalid('new_property_range')
+            remove_disabled('btn_property_add_change')
+            return
+        new_property_range = '-'.join(check_min_max(new_property_range))  # 格式化为前小后大
+    else:  # 格式化为用,分隔
+        new_property_range = new_property_range.replace('，', ',')
+    def on_complete(req):
+        if req.status != 200:
+            my_alert(i18n['ma_submit_failed'])  # ('提交数据失败！')
+        else:
+            data = json.loads(req.text)
+            if data['status'] == 'success':
+                document['close_add_change_properties_form'].click()
+                my_success(i18n['ma_successfully_modify'], 1000)  # '修改成功！'
+            else:
+                my_alert(data['message'])
+        remove_disabled('btn_property_add_change')
+    post_data = {
+        'target_class': get_active_class().text,
+        'target_property': target_property,
+        'new_property_range': new_property_range,
+        'new_property_comment': new_property_comment
+    }
+    ajax.post('/manage_attributes/change_property', data=json.dumps(post_data), 
+              headers={"Content-Type": "application/json"}, oncomplete=on_complete)
+
+
+def properties_add():  # 属性新增
+    add_disabled('btn_property_add_change')
+    # 清除错误信息
+    remove_is_invalid('new_property_name')
+    remove_is_invalid('new_property_range')
+    # 本地校验
+    new_property_name = document['new_property_name'].value
+    new_property_form = document['new_property_form'].value
+    new_property_range = document['new_property_range'].value
+    new_property_comment = document['new_property_comment'].value
+    if new_property_name == '':
+        document['new_property_name_feedback'].value = i18n['ub_name_cant_empty']  # '名称不能为空'
+        add_is_invalid('new_property_name')
+        remove_disabled('btn_property_add_change')
+        return
+    if new_property_form == 'num':
+        if check_min_max(new_property_range) == None:
+            add_is_invalid('new_property_range')
+            remove_disabled('btn_property_add_change')
+            return
+        new_property_range = '-'.join(check_min_max(new_property_range))  # 格式化为前小后大
+    else:  # 格式化为用,分隔
+        new_property_range = new_property_range.replace('，', ',')
+    def on_complete(req):
+        if req.status != 200:
+            my_alert(i18n['ma_submit_failed'])  # ('提交数据失败！')
+        else:
+            data = json.loads(req.text)
+            if data['status'] == 'success':
+                document['close_add_change_properties_form'].click()
+                my_success(i18n['ma_successfully_add'], 1000)  # '添加成功！'
+                document['properties_area'] <= generate_properties_item(data['new_property_name'])
+                # remove_disabled['btn_property_add_change']  # 关都关了，不需要了
+            else:
+                if data['message'] == i18n['ma_name_exists']:  # '名称已存在'
+                    document['new_property_name_feedback'].value = i18n['ma_name_exists']  # '名称已存在'
+                    add_is_invalid('new_property_name')
+                else:
+                    my_alert(data['message'])
+        remove_disabled('btn_property_add_change')
+    post_data = {
+        'target_class': get_active_class().text,
+        'new_property_name': new_property_name,
+        'new_property_form': new_property_form,
+        'new_property_range': new_property_range,
+        'new_property_comment': new_property_comment
+    }
+    # print(f'DBG: 新增属性{post_data}')
+    ajax.post('/manage_attributes/add_property', data=json.dumps(post_data), 
+              headers={"Content-Type": "application/json"}, oncomplete=on_complete)
+
+
+def reset_property_add_change_values():
+    document['new_property_name'].value = ''
+    document['new_property_form'].value = 'list'
+    document['new_property_range'].attrs['placeholder'] = i18n['new_property_rangeP']  # '以“,”（中英均可）分隔，例：红,绿,蓝'
+    document['new_property_range'].value = ''
+    document['new_property_range_analysis'].text = i18n['new_property_range_analysis']  # '识别到的内容：'
+    document['new_property_comment'].value = ''
+
+
+def show_properties_add():  # 修改弹窗表单属性
+    remove_disabled('btn_property_add_change')
+    document['new_property_range_analysis'].text = i18n['new_property_range_analysis']  # '识别到的内容：'
+    if show_property_add_pop_up:
+        document['add_change_properties_form_title'].text = i18n['add_change_properties_form_title']  # '新增属性'
+        remove_disabled('new_property_name')
+        remove_disabled('new_property_form')
+        document['btn_property_add_change'].unbind()
+        document['btn_property_add_change'].bind('click', lambda ev: properties_add())
+
+
+@bind(document['new_property_form'], 'change')  # 属性新增弹窗中，选项变化后触发
+def on_select_change(ev):
+    selected_value = ev.target.value
+    document['new_property_range'].value = ''
+    if selected_value == 'list':
+        document['new_property_range'].attrs['placeholder'] = i18n['new_property_rangeP']  # '以“,”（中英均可）分隔，例：红,绿,蓝'
+    elif selected_value == 'num':
+        document['new_property_range'].attrs['placeholder'] = i18n['new_property_name_range']  # '以“-”连接最小值和最大值，例：1-6.5'
+
+
+def check_min_max(text):  # 属性新增，校验num类型下range是否符合规范
+    vals = text.split('-')
+    if len(vals) != 2:
+        return None
+    try:
+        min_val = float(vals[0])
+        max_val = float(vals[1])
+    except ValueError:
+        return None
+    else:
+        return [str(min(min_val, max_val)), str(max(min_val, max_val))]
+    
+
+def check_list(text):  # 属性新增，提取list类型下range中的合法内容
+    text = text.replace('，', ',')
+    ret = []
+    for i in text.split(','):
+        if i != '':
+            ret.append(i)
+    return ret
+
+
+@bind(document['new_property_range'], 'blur')  # 属性新增弹窗中，范围输入完成失去焦点触发
+def range_on_blur(ev=None):
+    remove_is_invalid('new_property_range')
+    selected_value = document['new_property_form'].value
+    text = document['new_property_range'].value
+    analysis = document['new_property_range_analysis']
+    if selected_value == 'list':
+        ret = check_list(text)
+        analysis.text = i18n['ma_analysis_list_1']+str(len(ret))+i18n['ma_analysis_list_2']+str(ret)  # f'识别到的内容(共{len(ret)}项)：{ret}'
+    elif selected_value == 'num':
+        ret = check_min_max(text)
+        if ret != None:
+            analysis.text = i18n['ma_analysis_num_1']+str(ret[0])+i18n['ma_analysis_num_2']+str(ret[1])  # f'识别到的内容：最小值{ret[0]}，最大值{ret[1]}'
+        else:
+            document['new_property_range'].classList.add('is-invalid')
+            analysis.text = i18n['new_property_range_analysis']  # f'识别到的内容：'
+
+
+@bind(document['new_property_name'], 'blur')  # 属性新增弹窗中，名称输入完成失去焦点触发
+def property_name_on_blur(ev=None):
+    remove_is_invalid('new_property_name')
+
+
+def change_properties_buttons_selectivity():
+    if 'active' not in document['btn_classes_manage'].classList:
+        for i in document['classes_area']:
+            if 'active' in i.classList:
+                remove_disabled('btn_show_properties_add')
+                remove_disabled('btn_properties_manage')
+                return
+    add_disabled('btn_show_properties_add')
+    add_disabled('btn_properties_manage')
+
+
+def get_properties(target_class):  # 拉取分类的属性
+    classes_container = document['classes_area']
+    classes_items = classes_container.getElementsByTagName('div')
+    for div in classes_items:
+        if 'active' in div.classList:
+            div.classList.remove('active')
+        if target_class == div.text:
+            div.classList.add('active')
+    def on_complete(req):  # 只有名称的列表
+        if req.status != 200:
+            my_alert(i18n['vi_load_properties_failed'])  # ('从数据库加载属性失败！')
+            return
+        data = json.loads(req.text)
+        # print('DBG: get_properties获取的原始data:', data)
+        if data['status'] == 'success':
+            data = data['properties']
+            container = document['properties_area']
+            container.html = ''
+            for i in data:
+                container <= generate_properties_item(i)
+            change_properties_buttons_selectivity()
+        else:
+            my_alert(data['message'])
+    ajax.get('/manage_attributes/get_properties', data={'target_class': target_class}, oncomplete=on_complete)
+
+
+def properties_manage():  # 管理属性
+    global sortable_instance
+    manage_button = document['btn_properties_manage']
+    if manage_button.textContent == i18n['ma_manage']:  # '管理':
+        manage_button.textContent = i18n['ma_manage_complete']  # '完成'
+        manage_button.classList.add('active')
+        add_disabled('btn_show_classes_add')
+        add_disabled('btn_show_properties_add')
+        add_disabled('btn_classes_manage')
+
+        container = document['properties_area']
+        divs = container.getElementsByTagName('div')
+        for div in divs:
+            div.classList.add('draggable_item')
+            ico_del = html.BUTTON(Class='bi bi-trash3 icon-link delete_button', Type='button')
+            text = div.text
+            ico_del.bind('click', lambda ev, target=div: container.removeChild(target))
+            div <= ico_del
+            div.unbind('click')
+
+        sortable_instance = window.Sortable.new(container, {
+            'animation': 150,
+        })
+    else:
+        manage_button.textContent = i18n['ma_manage']  # '管理'
+        manage_button.classList.remove('active')
+        remove_disabled('btn_show_classes_add')
+        remove_disabled('btn_show_properties_add')
+        remove_disabled('btn_classes_manage')
+
+        container = document['properties_area']
+        childList = []
+        for div in container.getElementsByTagName('div'):
+            div.classList.remove('draggable_item')
+            text = div.textContent
+            div.clear()
+            div.textContent = text
+            div.bind('click', lambda ev, target=text:get_property_info(target))
+            childList.append(text)
+
+        sortable_instance.destroy()
+        sortable_instance = None
+        def on_complete(req):
+            if req.status != 200:
+                my_alert(i18n['ma_submit_failed'])  # ('提交数据失败！')
+                return
+            data = json.loads(req.text)
+            if data['status'] == 'success':
+                my_success(i18n['ma_successfully_modify'], 1000)  # "修改成功！"
+            else:
+                my_alert(data['message'])
+        post_data = {
+            'target_class': get_active_class().text,
+            'properties': childList
+        }
+        ajax.post('/manage_attributes/manage_properties', data=json.dumps(post_data), 
+                  headers={"Content-Type": "application/json"}, oncomplete=on_complete)
+############################################################################################################################
+#class
+def get_active_class():  # 返回处于active状态的class div
+    for i in document['classes_area'].getElementsByTagName('div'):
+        if 'active' in i.classList:
+            return i
+    return None
+
+
+@bind(document['new_class_name'], 'blur')  # 属性新增弹窗中，名称输入完成失去焦点触发
+def class_name_on_blur(ev=None):
+    remove_is_invalid('new_class_name')
+
+
+def generate_classes_item(target_class):  # 生成classes条目
+    new_item = html.DIV(target_class, Class='list-group-item list-group-item-action px-4')
+    new_item.bind('click', lambda ev, target=target_class:get_properties(target))
+    return new_item
+
+
+def get_classes():  # 拉取分类
+    def on_complete(req):  # 列表
+        if req.status != 200:
+            my_alert(i18n['oa_load_class_error'])  # ('加载分类数据失败！')
+            return
+        data = json.loads(req.text)
+        data = data['classes']
+        # print('DBG: 获取的data:', data)
+        container = document['classes_area']
+        divs = container.getElementsByTagName('div')
+        last_active_div = ''
+        for div in divs:
+            if 'active' in div.classList:
+                last_active_div = div.textContent
+        container.html = ''
+        for i in data:
+            new_item = generate_classes_item(i)
+            container <= new_item
+            if i == last_active_div:
+                new_item.classList.add('active')
+                new_item.click()
+        change_properties_buttons_selectivity()
+    ajax.get('/manage_attributes/get_classes', oncomplete=on_complete)
+        
+
+def classes_add():  # 新增分类
+    add_disabled('btn_classes_add')
+    remove_is_invalid('new_class_name')
+    # 本地检查
+    new_class = document['new_class_name'].value
+    if new_class == '':
+        document['new_class_name_feedback'].text = i18n['ub_name_cant_empty']  # '名称不能为空'
+        document['new_class_name'].classList.add('is-invalid')
+        remove_disabled('btn_classes_add')
+        return
+    def on_complete(req):
+        if req.status != 200:
+            my_alert(i18n['ma_submit_failed'])  # ('提交数据失败！')
+        else:
+            data = json.loads(req.text)
+            if data['status'] == 'success':
+                document['close_add_class_form'].click()
+                my_success(i18n['ma_successfully_add'], 1000)  # "添加成功！"
+                document['classes_area'] <= generate_classes_item(data['new_class'])
+                get_properties(data['new_class'])
+                document['new_class_name'].value = ''
+            else:
+                document['new_class_name_feedback'].text = data['message']
+                document['new_class_name'].classList.add('is-invalid')
+        remove_disabled('btn_classes_add')
+    ajax.post('/manage_attributes/add_class', data=json.dumps({'target_class': new_class}), 
+              headers={"Content-Type": "application/json"}, oncomplete=on_complete)
+
+
+def classes_manage():  # 管理分类
+    global sortable_instance
+    manage_button = document['btn_classes_manage']
+    if manage_button.textContent == i18n['ma_manage']:  # '管理'
+        manage_button.textContent = i18n['ma_manage_complete']  # '完成'
+        manage_button.classList.add('active')
+        add_disabled('btn_show_classes_add')
+        change_properties_buttons_selectivity()
+
+        container = document['classes_area']
+        divs = container.getElementsByTagName('div')
+        for div in divs:
+            div.classList.add('draggable_item')
+            ico_del = html.BUTTON(Class='bi bi-trash3 icon-link delete_button', Type='button')
+            text = div.text
+            ico_del.bind('click', lambda ev, target=div: container.removeChild(target))
+            div <= ico_del
+            div.unbind('click')
+        
+        sortable_instance = window.Sortable.new(container, {
+            'animation': 150,
+        })
+    else:
+        manage_button.textContent = i18n['ma_manage']  # '管理'
+        manage_button.classList.remove('active')
+        remove_disabled('btn_show_classes_add')
+        change_properties_buttons_selectivity()
+
+        container = document['classes_area']
+        childList = []
+        for div in container.getElementsByTagName('div'):
+            div.classList.remove('draggable_item')
+            text = div.textContent
+            div.clear()
+            div.textContent = text
+            div.bind('click', lambda ev, target=text:get_properties(target))
+            childList.append(text)
+
+        sortable_instance.destroy()
+        sortable_instance = None
+        # print(f'DBG: 当前的classes元素有{childList}')
+        def on_complete(req):
+            if req.status != 200:
+                my_alert(i18n['ma_submit_failed'])  # ('提交失败！')
+                return
+            data = json.loads(req.text)
+            if data['status'] == 'success':
+                my_success(i18n['ma_successfully_modify'], 1000)  # "修改成功！"
+            else:
+                # 有问题，需要重新拉取classes
+                get_classes()
+                my_alert(data['message'])
+        ajax.post('/manage_attributes/manage_classes', data=json.dumps({'classes': childList}), 
+                  headers={"Content-Type": "application/json"}, oncomplete=on_complete)
+
+############################################################################################################################
+#main
+
+def set_max_height(event=None):  # 重设列表界面最大高度
+    # print('DBG: 重设max-height')
+    div_padding = int(window.getComputedStyle(document['page_manage_attributes']).paddingBottom[:-2])  # paddingBottom读到的是字符串YYpx
+    window_height = window.innerHeight
+    if hasattr(window, 'visualViewport'):
+        window_height = min(window.visualViewport.height, window_height)
+        print(f'DGB: innerHeight:{window.innerHeight} visualViewport.height:{window.visualViewport.height}')
+    for target_name in ['classes_area', 'properties_area']:
+        target = document[target_name]
+        rect = target.getBoundingClientRect()
+        target.style.maxHeight = f'{window_height - rect.top - div_padding}px'
+        target.style.height = f'{window_height - rect.top - div_padding}px'
+
+
+def manage_attributes_page_on_visible(mutations, observer):  # 页面可见时加载
+    global sortable_instance
+    for mutation in mutations:
+        if mutation.type == 'attributes' and mutation.attributeName == 'style':
+            div = mutation.target
+            if window.getComputedStyle(div).display != 'none':
+                # print("DBG: 属性管理界面变为可见")
+                # 如果需要停止观察，可以在这里调用 observer.disconnect()
+                if sortable_instance is not None:  # 启动管理，切到了别的页面又切回来
+                    sortable_instance.destroy()
+                    document['btn_classes_manage'].textContent = i18n['ma_manage']  # '管理'
+                    document['btn_classes_manage'].classList.remove('active')
+                    document['btn_properties_manage'].textContent = i18n['ma_manage']  # '管理'
+                    document['btn_properties_manage'].classList.remove('active')
+                set_max_height()
+                get_classes()
+                window.onresize = set_max_height
+
+
+def init_manage_attributes_page():  # 初始化
+    document['btn_classes_add'].bind('click', lambda ev: classes_add())
+    document['btn_classes_manage'].bind('click', lambda ev: classes_manage())
+    document['btn_show_properties_add'].bind('click', lambda ev: show_properties_add())
+    document['close_add_change_properties_form'].bind('click', lambda ev: reset_property_add_change_values())
+    document['btn_properties_manage'].bind('click', lambda ev: properties_manage())
+
+    on_visible_target = document['page_manage_attributes']
+    observer = window.MutationObserver.new(manage_attributes_page_on_visible)
+    observer.observe(on_visible_target, {'attributes': True, 'attributeFilter': ['style']})
+
+    if window.getComputedStyle(on_visible_target).display != 'none':  # 
+        get_classes()
+
+    set_max_height()
+init_manage_attributes_page()

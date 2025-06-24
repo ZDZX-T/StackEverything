@@ -1,0 +1,113 @@
+<div style="display: none;" class="container-fluid p-1" id="page_test">
+    <div id="flag_place_holder">这里没有flag!!!</div>
+
+    <div class="container-fluid row mt-2 gx-2">
+        <div class="col-auto">
+            <button type="button" class="btn btn-danger" id="test_alert">给我个错误弹窗</button>
+        </div>
+        <div class="col-auto">
+            <button type="button" class="btn btn-danger" id="test_alert_call">给我个错误弹窗,要求用函数调用触发</button>
+        </div>
+        <div class="col-auto">
+            <button type="button" class="btn btn-success" id="test_success">给我个成功弹窗</button>
+        </div>
+        <div class="col-auto">
+            <button type="button" class="btn btn-success" id="test_success_long">给我个超长时间的成功弹窗</button>
+        </div>
+    </div>
+
+    <div class="container-fluid row mt-2 gx-2">
+        <div class="col-auto">
+            <button type="button" class="btn btn-success" id="test_log_doRollover">手动日志轮转</button>
+        </div>
+        <div class="col-auto">
+            <button type="button" class="btn btn-success" id="del_localStorage">删除localStorage数据</button>
+        </div>
+    </div>
+
+    <div class="container-fluid row mt-2 gx-2" style="display: none;">
+        <div class="col row row-cols-auto" id="drag_area_1">
+            <div class="square_item_parent col p-0" id="item_sp1" draggable="false" data-id="0">
+                <img class="square_item_child white rounded" id="item_sc1" src="/static/img/box-seam.svg" 
+                alt="这是一个示例图像" width="80" height="80">
+                <div class="square_item_number rounded-bottom-1 rounded-end-1 ps-1 pe-1" style="left: 10px; top: 10px;">1</div>
+                <div class="caption-text rounded-bottom">这里是你的描述文字。</div>
+            </div>
+            <div class="square_item_parent col" style="padding: 0;" id="item_sp2" draggable="false" data-id="1">
+                <div class="square_item_number rounded-bottom-1 rounded-end-1 ps-1 pe-1" style="left: 10px; top: 10px;">1</div>
+                <img class="square_item_child bg-blue" id="item_sc2" src="/static/img/box-seam.svg" 
+                alt="这是一个示例图像" width="80" height="80" style="pointer-events: none;">
+            </div>
+            <div class="square_item_parent col" style="padding: 0;" id="item_sp2" draggable="false" data-id="1">
+                <div class="square_item_number rounded-bottom-1 rounded-end-1 ps-1 pe-1" style="left: 10px; top: 10px;">1</div>
+                <img class="square_item_child bg-blue" id="item_sc2" src="/static/img/box-seam.svg" 
+                alt="这是一个示例图像" width="80" height="80" style="pointer-events: none;">
+            </div>
+            <div class="square_item_parent col" style="padding: 0;" id="item_sp2" draggable="false" data-id="1">
+                <div class="square_item_number rounded-bottom-1 rounded-end-1 ps-1 pe-1" style="left: 10px; top: 10px;">11</div>
+                <img class="square_item_child bg-blue" id="item_sc2" src="/static/img/box-seam.svg" 
+                alt="这是一个示例图像" width="80" height="80" style="pointer-events: none;">
+            </div>
+            <div class="square_item_parent col" style="padding: 0;" id="item_sp2" draggable="false" data-id="1">
+                <img class="square_item_child bg-blue" id="item_sc2" src="/static/img/box-seam.svg" 
+                alt="这是一个示例图像" width="80" height="80" style="pointer-events: none;">
+            </div>
+            <div class="square_item_parent col" style="padding: 0;" id="item_sp2" draggable="false" data-id="1">
+                <img class="square_item_child bg-blue" id="item_sc2" src="/static/img/box-seam.svg" 
+                alt="这是一个示例图像" width="80" height="80" style="pointer-events: none;">
+            </div>
+            <div class="square_item_parent col" style="padding: 0;" id="item_sp2" draggable="false" data-id="1">
+                <img class="square_item_child bg-blue" id="item_sc2" src="/static/img/box-seam.svg" 
+                alt="这是一个示例图像" width="80" height="80" style="pointer-events: none;">
+            </div>
+            <div class="square_item_parent col" style="padding: 0;" id="item_sp2" draggable="false" data-id="1">
+                <img class="square_item_child bg-blue" id="item_sc2" src="/static/img/box-seam.svg" 
+                alt="这是一个示例图像" width="80" height="80" style="pointer-events: none;">
+            </div>
+            <div class="square_item_parent col" style="padding: 0;" id="item_sp2" draggable="false" data-id="1">
+                <img class="square_item_child bg-blue" id="item_sc2" src="/static/img/box-seam.svg" 
+                alt="这是一个示例图像" width="80" height="80" style="pointer-events: none;">
+            </div>
+            <div class="square_item_parent col" style="padding: 0;" id="item_sp2" draggable="false" data-id="1">
+                <img class="square_item_child bg-blue" id="item_sc2" src="/static/img/box-seam.svg" 
+                alt="这是一个示例图像" width="80" height="80" style="pointer-events: none;">
+            </div>
+        </div>
+        <div class="col" id="drag_area_2">
+            <div class="col_item_parent" id="item_cp1">
+                <div class="col_item_child bg-blue rounded" id="item_cc1">
+
+                </div>
+            </div>
+            <div class="col_item_parent" id="item_cp2">
+                <div class="col_item_child bg-blue rounded" id="item_cc2">
+                    
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container-fluid row mt-2 gx-2">
+        <div id="global_variable_penetration"></div>
+    </div>
+
+    <div class="container-fluid row">
+        <div class="p-2" id="test_speed_1">0</div>
+        <div class="p-2" id="test_speed_2">0</div>
+        <div class="p-2" id="test_speed_time">0</div>
+        <button class="btn btn-success" id="test_speed_brython">使用brython开始计算</button>
+        <button class="btn btn-success" id="test_speed_js" onclick="testSpeedJS()">使用js开始计算</button>
+        <script>
+            function testSpeedJS() {
+                const start = performance.now(); // 使用更精确的时间测量方式
+                let timeEl = document.getElementById('test_speed_time');
+                for (let i = 0; i < 10000; i++) {
+                    document.getElementById('test_speed_1').textContent = i;
+                    document.getElementById('test_speed_2').textContent = document.getElementById('test_speed_1').textContent
+                }
+                const duration = (performance.now() - start).toFixed(4); // 精确到小数点后4位
+                timeEl.textContent = duration + ' ms';
+            }
+        </script>
+    </div>
+</div>

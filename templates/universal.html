@@ -1,0 +1,159 @@
+<!--元素详情-->
+<div class="modal fade" id="add_change_item_form" tabindex="-1" data-bs-backdrop="static" role="dialog">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h1 class="modal-title fs-5" id="add_item_form_title" data-id="" data-i18n="add_item_form_title">新增物品</h1>
+                <button type="button" data-bs-toggle="modal" data-bs-target="#add_change_item_form"
+                    style="display: none;" id="only_open_change_item_form">仅打开模态框，不执行其他函数</button>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"
+                    id="close_add_change_item_form"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-2"><!-- img -->
+                    <span class="form-label mb-1" data-i18n="new_item_img_area_label">图片</span><!-- for="new_item_img_area" -->
+                    <div class="rounded border p-2" id="new_item_img_area">
+                        <div id="cropped_img_area" class="position-relative"
+                            style="display: none; width: 100px; height: 100px;" data-bs-target="#view_large_image_modal"
+                            data-bs-toggle="modal">
+                            <div class="position-absolute top-0 end-0">
+                                <i class="bi bi-zoom-in fs-6" style="color: black;"></i>
+                            </div>
+                            <img id="cropped_img" , class="pb-2" src="" , style="width: 100px; height: 100px;">
+                        </div>
+                        <button type="button" class="btn btn-outline-success btn-sm" id="open_img_crop_modal"
+                            data-bs-target="#img_crop_modal" data-bs-toggle="modal" data-i18n="open_img_crop_modal">上传图片</button>
+                    </div>
+                </div>
+                <div class="mb-2"><!-- name -->
+                    <label for="new_item_name" class="form-label mb-1 form-required" data-i18n="new_item_name">名称</label>
+                    <div class="input-group">
+                        <input type="text" class="form-control" id="new_item_name" required>
+                        <div class="input-group-text p-0 ps-1 pe-1">
+                            <input class="form-check-input mt-0 me-1" type="checkbox" value=""
+                                id="new_item_name_auto_rename">
+                            <label class="form-check-label" for="new_item_name_auto_rename" data-i18n="new_item_name_auto_rename">重名自动加编号</label>
+                        </div>
+                        <div class="invalid-feedback" id="new_item_name_feedback" data-i18n="new_item_name_feedback">
+                            名称已存在
+                        </div>
+                    </div>
+                </div>
+                <div class="mb-2"><!-- class -->
+                    <label for="new_item_class" class="form-label mb-1 form-required" data-i18n="new_item_class_label">分类</label>
+                    <select class="form-select" id="new_item_class" required>
+                        <!--<option selected value="1">衣物</option>
+                            <option value="2">工具</option>-->
+                    </select>
+                    <div class="invalid-feedback" id="new_item_class_feedback" data-i18n="new_item_class_feedback">
+                        请选择分类
+                    </div>
+                </div>
+                <div class="mb-2"><!-- properties -->
+                    <span class="form-label mb-1" data-i18n="new_item_property_area_label">属性</span><!-- for="new_item_property_area"-->
+                    <div class="rounded border p-2" id="new_item_property_area">
+                        <!-- 调试用
+                            <div class="mb-2">
+                                <label for="property_1" class="ps-2 form-label mb-1">季节</label>
+                                <select class="form-select" id="property_0">
+                                    <option value="0">春秋</option>
+                                    <option value="1">夏</option>
+                                    <option value="2">冬</option>
+                                </select>
+                            </div>
+                            <div class="">
+                                <label for="property_2" class="ps-2 form-label mb-1">尺寸</label>
+                                <input type="text" class="form-control" id="property_1" placeholder="1-999">
+                            </div>
+                            -->
+                    </div>
+                </div>
+                <div class="mb-2"><!-- is_virtual -->
+                    <span class="form-label mb-1 form-required" data-i18n="new_item_is_virtual_label">是否为虚拟物品</span> <!--for="new_item_is_virtual"-->
+                    <div class="rounded border p-1 ps-3" id="new_item_is_virtual">
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="radio" name="radioDefault"
+                                id="new_item_is_virtual_false" checked>
+                            <label class="form-check-label" for="new_item_is_virtual_false" data-i18n="new_item_is_virtual_false_label">
+                                否
+                            </label>
+                        </div>
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="radio" name="radioDefault"
+                                id="new_item_is_virtual_true">
+                            <label class="form-check-label" for="new_item_is_virtual_true" data-i18n="new_item_is_virtual_true_label">
+                                是
+                            </label>
+                        </div>
+                    </div>
+                    <div class="invalid-feedback" id="new_item_is_virtual_feedback" data-i18n="new_item_is_virtual_feedback">
+                        不要给我整些花里胡哨的传参
+                    </div>
+                </div>
+                <div class="mb-2"><!-- expiration_time -->
+                    <label for="new_item_expiration_time" class="form-label mb-1" data-i18n="new_item_expiration_time_label">过期日期</label>
+                    <input type="date" class="form-control" id="new_item_expiration_time" placeholder="请选择日期" data-i18n="new_item_expiration_timeP">
+                    <div class="invalid-feedback" id="new_item_expiration_time_feedback" data-i18n="new_item_expiration_time_feedback">
+                        日期格式错误
+                    </div>
+                </div>
+                <div class="mb-2"><!-- comment -->
+                    <label for="new_item_comment" class="form-label mb-1" data-i18n="new_item_comment_label">备注</label>
+                    <textarea class="form-control" id="new_item_comment" rows="2"></textarea>
+                    <div class="invalid-feedback" id="new_item_comment_feedback" data-i18n="new_item_comment_feedback">
+                        请检查备注内容
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-danger" id="btn_item_delete" style="display: none;" data-i18n="btn_item_delete">删除</button>
+                <button type="button" class="btn btn-success" id="btn_item_add_change" data-i18n="btn_item_add_change">提交</button>
+            </div>
+        </div>
+    </div>
+</div>
+<!--裁剪图片-->
+<div class="modal fade" id="img_crop_modal" tabindex="-1" data-bs-backdrop="static" role="dialog">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h1 class="modal-title fs-5" data-i18n="img_crop_modal">裁剪图片</h1>
+                <button type="button" class="btn-close" data-bs-target="#add_change_item_form"
+                    data-bs-toggle="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="container-fluid p-0">
+                    <img id="img_input_preview" src="" alt="上传图片预览" style="display: none; max-width: 100%;">
+                </div>
+                <input type="file" id="img_input" accept="image/*" hidden>
+            </div>
+            <div class="modal-footer">
+                <div class="form-check d-flex p-0">
+                    <input class="form-check-input ms-0 me-0" type="checkbox" value="" id="use_img_size_settings" checked>
+                    <label class="form-check-label" for="use_img_size_settings"
+                        id="use_img_size_settings_lable" data-i18n="use_img_size_settings_lable">压缩图片</label>
+                </div>
+                <button type="button" class="btn btn-outline-success" id="reupload_img_btn" data-i18n="reupload_img_btn">重选图片</button>
+                <button type="button" class="btn btn-success" id="crop_img_btn" data-bs-target="#add_change_item_form"
+                    data-bs-toggle="modal" disabled data-i18n="crop_img_btn">应用裁剪</button>
+            </div>
+        </div>
+    </div>
+</div>
+<!--查看大图-->
+<div class="modal fade" id="view_large_image_modal" tabindex="-1" data-bs-backdrop="static" role="dialog">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h1 class="modal-title fs-5" data-i18n="view_large_image_modal">查看大图</h1>
+                <button type="button" class="btn-close" data-bs-target="#add_change_item_form"
+                    data-bs-toggle="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="container-fluid p-0">
+                    <img id="large_image" src="" alt="大图" style="max-width: 100%;">
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

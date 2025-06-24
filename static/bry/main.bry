@@ -1,0 +1,44 @@
+from browser import document, window # type: ignore
+# print('DBG: main.bry已加载')
+
+
+def active_page(page):
+    # print(f'DBG: 激活页面{page}')
+    # 因为已经激活的按钮不会绑定click，因此认为page传参总是与当前page不同
+    buttons = document['select_page'].getElementsByTagName('button')
+    for btn in buttons:
+        if 'active' in btn.classList:  # 上一个激活的按钮
+            btn.classList.remove('active')
+            page_name = btn.id[4:]
+            btn.bind('click', lambda ev: active_page(page_name))
+            document['page_'+page_name].style.display = 'none'
+    target_btn = document['btn_'+page]
+    target_page = document['page_'+page]
+    target_btn.unbind('click')
+    target_btn.classList.add('active')
+    target_page.style.display = 'block'
+    document['page_title'].text = target_btn.text
+    window.history.pushState({}, '', f'?page={page}')
+    document['close_offcanvas'].click()
+
+
+def init_page():
+    # print('DBG: start init_page()')
+    url_params = window.location.search.lstrip('?')
+    params_dict = {pair.split('=')[0]: pair.split('=')[1] for pair in url_params.split('&')} if url_params else {}
+    target_page = params_dict.get('page', 'operating_area')  # 尝试获取page参数，没有就默认操作区
+    # print(f'DBG: 最初获取的target_page {target_page}')
+    buttons = document['select_page'].getElementsByTagName('button')
+    valid_pages = []
+    for btn in buttons:
+        page_name = btn.id[4:]
+        valid_pages.append(page_name)
+        btn.bind('click', lambda ev, p=page_name: active_page(p))
+        # print(f'DBG: button {btn.id} 绑定 {page_name}')
+    if target_page not in valid_pages:  # 页面合法性校验
+        target_page = 'operating_area'
+    active_page(target_page)
+init_page()
+
+
+

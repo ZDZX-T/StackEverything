@@ -1,0 +1,260 @@
+from browser import document, window, html, ajax, timer # type: ignore
+from universal import my_alert, my_success, disable_selection, enable_selection, config
+import base64
+import json
+import time
+
+############line1
+def l_f():
+    document['flag_place_holder'].text = base64.b64decode('ZmxhZ3tEb195b3Vfd2FudF90b19sZWFybl9DVEZfP30=').decode()
+
+
+############line2
+def call_my_alert(msg):
+    my_alert(msg)
+
+
+############line3
+def manually_doRollover():  # 手动触发轮转日志
+    def on_complete(req):
+        if req.status != 200:
+            my_alert('手动轮转失败！')
+            return
+        data = json.loads(req.text)
+        if data['status'] == 'success':
+            my_success('手动日志轮转成功！')
+        else:
+            my_alert(data['message'])
+    ajax.get('/doRollover', oncomplete=on_complete)
+
+
+def del_localStorage():  # 删除localStorage数据
+    window.localStorage.clear()
+    my_success('成功')
+
+
+############line4
+triggered_event = ''  # 用来记录触发的是什么事件，drag long click
+origin_element = None  # 记录谁被鼠标按下
+clone_element = None  # 记录被鼠标按下的元素的克隆
+origin_pos = (0, 0)  # 记录初始按下时的鼠标位置
+last_target_element = None  # 记录最后被on_over的元素
+idtimer = 0  # 记录定时器，方便清除
+
+
+def get_focus_pos_element(ev):
+    # 判断是鼠标事件还是触摸事件，并获取坐标
+    if hasattr(ev, 'pageX') and hasattr(ev, 'pageY'):  # 鼠标事件
+        x, y = ev.pageX, ev.pageY
+        element = ev.target
+        # print(f"DBG: 鼠标当前坐标:(x={x}, y={y})元素为{element}")
+    elif hasattr(ev, 'changedTouches'):  # 触摸事件
+        x, y = ev.changedTouches[0].pageX, ev.changedTouches[0].pageY
+        element = document.elementFromPoint(x, y)
+        # print(f"DBG: 触摸当前坐标(x={x}, y={y})元素为{element}")
+    else:
+        x, y, element = None, None, None
+        # print(f"DBG: 没检测到坐标！！！")
+    return x, y, element
+
+
+def on_down(ev):  # 按下
+    global triggered_event, origin_element, clone_element, origin_pos, last_target_element, idtimer
+    # 保证按下的是img范围
+    x, y, t = get_focus_pos_element(ev)
+    rect = t.getBoundingClientRect()
+    width = rect.width
+    if x < rect.left + width*0.1 or rect.left + width*0.9 < x or y < rect.top + width*0.1 or rect.top + width*0.9 < y:  # 不是图片范围，不响应
+        return
+    print(f"DBG: on_down()")
+    disable_selection()  # 防止选择文本
+    ev.preventDefault()  # 阻止移动端的侧滑返回和下拉刷新
+    # 初始化一些值
+    triggered_event = ''
+    origin_element = ev.target
+    clone_element = None
+    origin_pos = (x, y)
+    last_target_element = None
+    # 更改样式
+    origin_element_img = origin_element.getElementsByTagName('img')[0]
+    origin_element_img.style.opacity = "0.5"  # 改变透明度
+    # 绑定事件
+    idtimer += 1
+    timer.set_timeout(long_press, 1500, ev, idtimer)
+    document.bind('mousemove', update_position)
+    document.bind('touchmove', update_position)
+    document.bind('mouseup', on_up)
+    document.bind('touchend', on_up)
+
+    
+def update_position(ev):  # 更新鼠标/触摸位置
+    global clone_element, last_target_element, triggered_event
+    x, y, now_element =get_focus_pos_element(ev)
+    if x is None:
+        my_alert('无法得到坐标！')
+    if clone_element is None:
+        if abs(x - origin_pos[0]) > 10 or abs(y - origin_pos[1]) > 10:  # 可以准备拖拽样式了
+            clone = origin_element.cloneNode(True)
+            clone.dataset['id'] = '-1'  # DBG时识别元素
+            clone_element = clone
+            clone.style.position = "absolute"
+            origin_rect = origin_element.getBoundingClientRect()
+            clone.style.left = f'{origin_rect.left}px'
+            clone.style.top = f'{origin_rect.top}px'
+            clone.style.pointerEvents = "none"
+            clone_divs = list(clone.getElementsByTagName('div'))
+            for div in clone_divs:
+                div.remove()
+            clone_img = clone.getElementsByTagName('img')[0]
+            clone_img.style.opacity = "0.9"  # 改变透明度
+            clone_img.style.width = "70px"   # 改变宽度
+            clone_img.style.height = "70px"  # 改变高度
+            document.body.appendChild(clone)  # 保证有动效
+            clone_rect = clone.getBoundingClientRect()
+            clone.style.left = f'{x - clone_rect.width / 2}px'
+            clone.style.top = f'{y - clone_rect.height / 2}px'
+            clone.style.pointerEvents = "none"
+            clone_img.style.opacity = "0.5"  # 改变透明度
+            clone_img.style.width = "50px"   # 改变宽度
+            clone_img.style.height = "50px"  # 改变高度
+    else:
+        clone_rect = clone_element.getBoundingClientRect()
+        clone_element.style.left = f'{x - clone_rect.width / 2}px'
+        clone_element.style.top = f'{y - clone_rect.height / 2}px'
+
+    # 处理滑过逻辑
+    if now_element != last_target_element:  # 当前元素与过往元素不同
+        if last_target_element != None:  # 过往元素不为空，则需要清除过往元素的发光
+            img = last_target_element.getElementsByTagName('img')[0]
+            img.classList.remove('glow') if 'glow' in img.classList else None
+            img.classList.remove('left-glow') if 'left-glow' in img.classList else None
+            img.classList.remove('right-glow') if 'right-glow' in img.classList else None
+            last_target_element = None
+    # print(f'DBG: now_element{now_element} origin_element{origin_element}')
+    if now_element != origin_element and (triggered_event == 'drag' or triggered_event == ''):  # 当前元素与初始元素不同，且可触发drag
+        triggered_event = 'drag'
+        if 'id' in now_element.dataset:  # 如果是应触发滑过逻辑的区域，则添加发光
+            last_target_element = now_element
+            rect = now_element.getBoundingClientRect()
+            img = now_element.getElementsByTagName('img')[0]
+            width = rect.width
+            left_area = rect.left + width*0.2
+            right_area = rect.left + width*0.8
+            if x < left_area:
+                img.classList.remove('glow') if 'glow' in img.classList else None
+                img.classList.remove('right-glow') if 'right-glow' in img.classList else None
+                img.classList.add('left-glow')
+            elif x < right_area:
+                img.classList.remove('left-glow') if 'left-glow' in img.classList else None
+                img.classList.remove('right-glow') if 'right-glow' in img.classList else None
+                img.classList.add('glow')
+            else:
+                img.classList.remove('left-glow') if 'left-glow' in img.classList else None
+                img.classList.remove('glow') if 'glow' in img.classList else None
+                img.classList.add('right-glow')
+
+
+def long_press(ev, id):  # 长按
+    global triggered_event
+    if triggered_event == '' and id == idtimer:  # 防止前朝的剑斩本朝的官
+        triggered_event = 'long'
+        print(f'DBG: 触发long')
+        my_success('触发long', 1000)
+
+
+def on_up(ev):  # 抬起
+    global triggered_event, last_target_element, origin_element
+    # 解绑事件
+    document.unbind('mousemove', update_position)
+    document.unbind('touchmove', update_position)
+    document.unbind('mouseup', on_up)
+    document.unbind('touchend', on_up)
+    enable_selection()
+    # 获取触发事件的元素
+    x, y, element = get_focus_pos_element(ev)
+    print(f"DBG: 抬起触发的元素id为{element.id}")
+    if triggered_event == '':
+        triggered_event = 'click'
+    elif triggered_event == 'drag' and ('id' not in element.dataset or origin_element == element):  # 白drag了
+        triggered_event = 'none'
+    print(f'DBG: 判定触发的效果-{triggered_event}')
+    if triggered_event == 'click':
+        my_success('触发click', 1000)
+    elif triggered_event == 'drag':
+        my_success('触发drag', 1000)
+    elif triggered_event == 'none':
+        my_success('无事发生', 1000)
+    # 清除发光
+    if last_target_element is not None and 'id' in last_target_element.dataset:
+        img = last_target_element.getElementsByTagName('img')[0]
+        img.classList.remove('glow') if 'glow' in img.classList else None
+        img.classList.remove('left-glow') if 'left-glow' in img.classList else None
+        img.classList.remove('right-glow') if 'right-glow' in img.classList else None
+        last_target_element = None
+    # 清除克隆
+    if clone_element is not None:
+        clone_element.remove()
+    # 恢复origin元素属性
+    origin_element_img = origin_element.getElementsByTagName('img')[0]
+    origin_element_img.style.opacity = "1"  # 改变透明度
+
+
+############line5
+def test_global_variable_penetration():
+    print(f'DBG: 测试全局变量穿透 bry_config.PIC_PATH:{config.PIC_PATH}')
+    document['global_variable_penetration'].text = config.PIC_PATH
+
+
+############line6
+def test_speed_bry():
+    time1 = time.time()
+    for i in range(10000):
+        document['test_speed_1'].text = i
+        document['test_speed_2'].text = document['test_speed_1'].text
+    document['test_speed_time'].text = time.time() - time1
+
+
+############
+def page_on_visible(mutations, observer):  # 直接加载页面时此函数失效，需要在
+    for mutation in mutations:
+        if mutation.type == 'attributes' and mutation.attributeName == 'style':
+            div = mutation.target
+            if window.getComputedStyle(div).display != 'none': 
+                page_on_vivible_then()
+            else:
+                # print("DBG: 测试界面不可见")
+                document['flag_place_holder'].text = '这里没有flag!!!'
+                # 如果需要停止观察，可以在这里调用 observer.disconnect()
+
+
+def page_on_vivible_then():  # 页面变可见时要干的事
+    # print("DBG: 测试界面变为可见")
+    l_f()
+    test_global_variable_penetration()
+
+
+def init_test_page():
+    document['test_alert'].bind('click', lambda ev: my_alert('测试警告'))
+    document['test_alert_call'].bind('click', lambda ev: call_my_alert('从函数调用触发的警告'))
+    document['test_success'].bind('click', lambda ev: my_success('测试成功'))
+    document['test_success_long'].bind('click', lambda ev: my_success('超长时间的成功，快调试', 5*60*1000))
+
+    document['test_log_doRollover'].bind('click', lambda ev: manually_doRollover())
+    document['del_localStorage'].bind('click', lambda ev: del_localStorage())
+
+    document['item_sp1'].bind('mousedown', on_down)
+    document['item_sp1'].bind('touchstart', on_down)
+    # document['item_sp1'].bind('mouseup', on_up)
+    # document['item_sp1'].bind('touchend', on_up)
+    document['item_sp2'].bind('mousedown', on_down)
+    document['item_sp2'].bind('touchstart', on_down)
+
+    document['test_speed_brython'].bind('click', lambda ev: test_speed_bry())
+
+    on_visible_target = document['page_test']
+    observer = window.MutationObserver.new(page_on_visible)
+    observer.observe(on_visible_target, {'attributes': True, 'attributeFilter': ['style']})
+
+    if window.getComputedStyle(on_visible_target).display != 'none':
+        page_on_vivible_then()
+init_test_page()

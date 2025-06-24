@@ -1,0 +1,169 @@
+<div style="display: none;" class="container-fluid p-1" id="page_operating_area">
+    <div class="container-fluid">
+        <div class="row row-cols-2">
+            <div class="col p-0">
+                <div class="rounded bg-white container-fluid border">
+                    <div class="row border-bottom border-1 p-0 text-center">
+                        <div class="col-4 border-end p-0 lh-1 pt-2 pb-2 d-flex justify-content-center align-items-center div2btn fw-bold rounded-tl"
+                        id="multi_select_l" data-i18n="multi_select">
+                            多选
+                        </div>
+                        <div class="dropdown col-4 border-end p-0 lh-1 d-flex">
+                            <div class="flex-grow-1 pt-2 pb-2 d-flex justify-content-center align-items-center div2btn fw-bold dropdown-toggle text-wrap"
+                            id="quick_move_l" data-bs-toggle="dropdown" data-i18n="quick_move">
+                                快速移动
+                            </div>
+                            <ul class="dropdown-menu custom-dropdown">
+                                <li><button class="btn dropdown-item active" type="button" id="quick_none_l" data-i18n="quick_none">无</button></li>
+                                <li><button class="btn dropdown-item" type="button" id="quick_insert_l" data-i18n="quick_insert">快速插入</button></li>
+                                <li><button class="btn dropdown-item" type="button" id="quick_absorb_l" data-i18n="quick_absorb">快速吸收</button></li>
+                                <li><button class="btn dropdown-item" type="button" id="quick_portal_l" data-i18n="quick_portal">传送门</button></li>
+                            </ul>
+                        </div>
+                        <!--<div class="col-3 border-end p-0 lh-1 pt-2 pb-2 d-flex justify-content-center align-items-center div2btn fw-bold"
+                        id="virtual_basket_l">
+                            虚拟篮子
+                        </div>-->
+                        <div class="dropdown col-4 p-0 lh-1 d-flex">
+                            <div class="flex-grow-1 pt-2 pb-2 d-flex justify-content-center align-items-center div2btn fw-bold rounded-tr dropdown-toggle text-wrap"
+                            id="item_side_len_dropdown_l" data-bs-toggle="dropdown" data-bs-auto-close="false" data-i18n="item_side_len">
+                                元素大小
+                            </div>
+                            <div class="dropdown-menu p-3">
+                                <input type="number" class="form-control" id="item_side_len_l" placeholder="">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row row-cols-5 border-bottom border-1 p-0 text-center">
+                        <div class="col-12 p-1 d-flex align-items-center">
+                            <div class="container p-1 rounded border d-flex align-items-center">
+                                <nav class="w-100" style="--bs-breadcrumb-divider: '>';" id="breadcrumb_nav_l">
+                                    <ol class="breadcrumb m-0 overflow-x-auto" id="breadcrumb_l">
+                                    </ol>
+                                </nav>
+                            </div>
+                        </div>
+                        <div class="col pt-1 pb-1 d-flex justify-content-center align-items-center div2btn fw-bold" id="back_btn_l">
+                            <i class="bi bi-arrow-left fs-5" style="color: black;" id="back_ico_l"></i>
+                        </div>
+                        <div class="col pt-1 pb-1 d-flex justify-content-center align-items-center div2btn fw-bold" id="forward_btn_l">
+                            <i class="bi bi-arrow-right fs-5" style="color: black;" id="forward_ico_l"></i>
+                        </div>
+                        <div class="col pt-1 pb-1 d-flex justify-content-center align-items-center div2btn fw-bold" id="parent_btn_l">
+                            <i class="bi bi-arrow-up fs-5" style="color: black;" id="parent_ico_l"></i>
+                        </div>
+                        <div class="col pt-1 pb-1 d-flex justify-content-center align-items-center div2btn fw-bold" id="manual_breadcrumb_btn_l"
+                        data-bs-toggle="modal" data-bs-target="#manual_input_breadcrumb_form" >
+                            <i class="bi bi-arrow-return-left fs-5" style="color: black;" id="manual_ico_l"></i>
+                        </div>
+                        <div class="col pt-1 pb-1 d-flex justify-content-center align-items-center div2btn fw-bold" id="open_add_btn_l"
+                        data-bs-toggle="modal" data-bs-target="#add_change_item_form" >
+                            <i class="bi bi-plus-lg fs-5" style="color: black;" id="add_ico_l"></i>
+                        </div>
+                    </div>
+                    <div class="row row-cols-auto overflow-y-auto" id="item_area_l" style="align-content: flex-start;">
+                    </div>
+                </div>
+            </div>
+            <div class="col p-0 ps-1">
+                <div class="rounded bg-white container-fluid border">
+                    <div class="row border-bottom border-1 p-0 text-center">
+                        <div class="col-4 border-end p-0 lh-1 pt-2 pb-2 d-flex justify-content-center align-items-center div2btn fw-bold rounded-tl"
+                        id="multi_select_r" data-i18n="multi_select">
+                            多选
+                        </div>
+                        <div class="dropdown col-4 border-end p-0 lh-1 d-flex">
+                            <div class="flex-grow-1 pt-2 pb-2 d-flex justify-content-center align-items-center div2btn fw-bold dropdown-toggle text-wrap"
+                            id="quick_move_r" data-bs-toggle="dropdown" data-i18n="quick_move">
+                                快速移动
+                            </div>
+                            <ul class="dropdown-menu custom-dropdown">
+                                <li><button class="btn dropdown-item active" type="button" id="quick_none_r" data-i18n="quick_none">无</button></li>
+                                <li><button class="btn dropdown-item" type="button" id="quick_insert_r" data-i18n="quick_insert">快速插入</button></li>
+                                <li><button class="btn dropdown-item" type="button" id="quick_absorb_r" data-i18n="quick_absorb">快速吸收</button></li>
+                                <li><button class="btn dropdown-item" type="button" id="quick_portal_r" data-i18n="quick_portal">传送门</button></li>
+                            </ul>
+                        </div>
+                        <!--<div class="col-3 border-end p-0 lh-1 pt-2 pb-2 d-flex justify-content-center align-items-center div2btn fw-bold"
+                        id="virtual_basket_r">
+                            虚拟篮子
+                        </div>-->
+                        <div class="dropdown col-4 p-0 lh-1 d-flex">
+                            <div class="flex-grow-1 pt-2 pb-2 d-flex justify-content-center align-items-center div2btn fw-bold rounded-tr dropdown-toggle text-wrap"
+                            id="item_side_len_dropdown_r" data-bs-toggle="dropdown" data-bs-auto-close="false" data-i18n="item_side_len">
+                                元素大小
+                            </div>
+                            <div class="dropdown-menu p-3">
+                                <input type="number" class="form-control" id="item_side_len_r" placeholder="">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row row-cols-5 border-bottom border-1 p-0 text-center">
+                        <div class="col-12 p-1 d-flex align-items-center">
+                            <div class="container p-1 rounded border d-flex align-items-center">
+                                <nav class="w-100" style="--bs-breadcrumb-divider: '>';" id="breadcrumb_nav_r">
+                                    <ol class="breadcrumb m-0 overflow-x-auto" id="breadcrumb_r">
+                                    </ol>
+                                </nav>
+                            </div>
+                        </div>
+                        <div class="col pt-1 pb-1 d-flex justify-content-center align-items-center div2btn fw-bold" id="back_btn_r">
+                            <i class="bi bi-arrow-left fs-5" style="color: black;" id="back_ico_r"></i>
+                        </div>
+                        <div class="col pt-1 pb-1 d-flex justify-content-center align-items-center div2btn fw-bold" id="forward_btn_r">
+                            <i class="bi bi-arrow-right fs-5" style="color: black;" id="forward_ico_r"></i>
+                        </div>
+                        <div class="col pt-1 pb-1 d-flex justify-content-center align-items-center div2btn fw-bold" id="parent_btn_r">
+                            <i class="bi bi-arrow-up fs-5" style="color: black;" id="parent_ico_r"></i>
+                        </div>
+                        <div class="col pt-1 pb-1 d-flex justify-content-center align-items-center div2btn fw-bold" id="manual_breadcrumb_btn_r"
+                        data-bs-toggle="modal" data-bs-target="#manual_input_breadcrumb_form" >
+                            <i class="bi bi-arrow-return-left fs-5" style="color: black;" id="manual_ico_r"></i>
+                        </div>
+                        <div class="col pt-1 pb-1 d-flex justify-content-center align-items-center div2btn fw-bold" id="open_add_btn_r"
+                        data-bs-toggle="modal" data-bs-target="#add_change_item_form" >
+                            <i class="bi bi-plus-lg fs-5" style="color: black;" id="add_ico_r"></i>
+                        </div>
+                    </div>
+                    <div class="row row-cols-auto overflow-y-auto" id="item_area_r" style="align-content: flex-start;">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="modal fade" id="manual_input_breadcrumb_form" tabindex="-1" data-bs-backdrop="static" role="dialog">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h1 class="modal-title fs-5" data-i18n="oa_path_info">路径信息</h1>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"
+                        id="close_manual_input_breadcrumb_form"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-2">
+                        <label for="now_breadcrumb_path_l" class="form-label mb-1" data-i18n="now_breadcrumb_path_l">当前左侧路径字符串版</label>
+                        <textarea class="form-control" id="now_breadcrumb_path_l" rows="2"></textarea>
+                    </div>
+                    <div class="mb-2">
+                        <label for="now_breadcrumb_path_r" class="form-label mb-1" data-i18n="now_breadcrumb_path_r">当前右侧路径字符串版</label>
+                        <textarea class="form-control" id="now_breadcrumb_path_r" rows="2"></textarea>
+                    </div>
+                    <div class="mb-2 pt-4">
+                        <label for="manual_input_breadcrumb" class="form-label mb-1"
+                            id="manual_input_breadcrumb_lable" data-i18n="manual_input_breadcrumb_lable">直接跳转</label>
+                        <div class="input-group">
+                            <input type="text" class="form-control" id="manual_input_breadcrumb" placeholder="请输入路径尾节点名称"
+                                data-side="" data-i18n="manual_input_breadcrumbP">
+                            <button class="input-group-text btn btn-success rounded-end" id="manual_input_breadcrumb_jump" data-i18n="manual_input_breadcrumb_jump">
+                                跳转
+                            </button>
+                            <div class="invalid-feedback" id="manual_input_breadcrumb_feedback" data-i18n="manual_input_breadcrumb_feedback">
+                                请输入物品名称
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

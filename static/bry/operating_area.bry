@@ -1,0 +1,1345 @@
+from browser import document, window, html, ajax, timer # type: ignore
+from universal import my_alert, my_success, disable_selection, enable_selection, config, Promise, i18n
+import universal_bry
+import json
+import time
+
+multi = {  # 两侧多选状态
+    'l': False,
+    'r': False,
+    'l_quick': False,
+    'r_quick': False
+}
+quick = {  # 两侧快速移动选项状态 none insert absorb portal
+    'l': 'none',
+    'r': 'none',
+    'portal': None  # 选定的portal元素{'id': 目标id, 'img': 目标img方便清除发光, 'element':  目标square_item_parent方便前端渲染}
+}
+
+breadcrumb = {
+    'l': {
+        'breadcrumb': [],  # 左侧路径 ('/', 0)，父在左子在右
+        'stack_back': [],  # 左侧路径栈，元素只有id
+        'stack_forward': []  # 左侧回退路径栈
+    },
+    'r': {
+        'breadcrumb': [],  # 右侧路径 ('/', 0)
+        'stack_back': [],  # 右侧路径栈，元素只有id
+        'stack_forward': []  # 右侧回退路径栈
+    }
+}
+
+item_side_len = {  # item边长
+    'l': 0,
+    'r': 0
+}
+
+items = {  # item列表
+    'l': [],
+    'r': []
+}
+
+add_change_item_side = ''  # 用来记录向哪侧新增/修改元素
+
+cropper = None  # cropper
+
+###########################
+# 多选
+def multi_select_on_click(ev):  # 点击多选按钮
+    global multi
+    target = ev.target
+    if 'my-success' in target.classList:
+        if target.id == 'multi_select_l':
+            multi_select_deactivate('l')
+        else:
+            multi_select_deactivate('r')
+    else:
+        target.classList.add('my-success')
+        if target.id == 'multi_select_l':
+            multi['l'] = True  
+            quick_move_switch('l', 'none')
+        else:
+            multi['r'] = True
+            quick_move_switch('r', 'none')
+
+
+def multi_select_deactivate(side):  # 多选按钮取消激活
+    global multi
+    if multi[side] != False:
+        document[f'multi_select_{side}'].classList.remove('my-success')
+        multi[side] = False
+        multi[f'{side}_quick'] = False
+        # 取消下方元素的外发光效果
+        for div in document[f'item_area_{side}'].children:
+            div.getElementsByTagName('img')[0].classList.remove('glow-for-multi')
+            div.getElementsByTagName('img')[0].classList.remove('glow-for-multi-plus')
+            div.getElementsByTagName('img')[0].classList.remove('glow-for-multi-quick')
+
+
+###########################
+# 元素快速移动
+oa_portal_target = None  # 传送门目标元素
+
+
+def quick_move_switch(side, to):  # 切换快速移动样式
+    global quick, oa_portal_target
+    if to not in ['none', 'insert', 'absorb', 'portal'] or side not in ['l', 'r']:
+        print('DBG: quick_move_switch()传参错误')
+        return
+    old_quick = quick[side]
+    if old_quick == to:
+        return  # 对着呢，退出
+    # 一旦切换，portal肯定是要清除的
+    if oa_portal_target is not None:
+        oa_portal_target.getElementsByTagName('img')[0].classList.remove('glow-for-portal')
+        oa_portal_target = None
+    # 选项激活状态管理
+    document[f'quick_{old_quick}_{side}'].classList.remove('active')
+    document[f'quick_{to}_{side}'].classList.add('active') 
+    # 主按钮激活状态管理
+    if to == 'none':  # 去掉快速移动按钮颜色
+        document[f'quick_move_{side}'].classList.remove('my-success')
+    elif old_quick == 'none':  # 增加颜色
+        document[f'quick_move_{side}'].classList.add('my-success')
+    # 多选按钮联动关闭管理
+    if to != 'none':
+        multi_select_deactivate(side)
+    # 其他管理
+    if to == 'none':
+        document[f'quick_move_{side}'].text = i18n['quick_move']  # '快速移动'
+    if to == 'insert':
+        document[f'quick_move_{side}'].text = i18n['quick_insert']  # '快速插入'
+    if to == 'absorb':
+        document[f'quick_move_{side}'].text = i18n['quick_absorb']  # '快速吸收'
+    if to == 'portal':  # 特殊，因为需要联动两边
+        # 干脆全来一遍
+        for s in ['l', 'r']:
+            multi_select_deactivate(s)
+            # 重置自己，保证初始状态可控
+            quick_move_switch(s, 'none')
+            document[f'quick_none_{s}'].classList.remove('active')
+            document[f'quick_portal_{s}'].classList.add('active')
+            document[f'quick_move_{s}'].classList.add('my-success')
+            document[f'quick_move_{s}'].text = i18n['quick_portal']  # '传送门'
+            quick[s] = 'portal'
+    if old_quick == 'portal':  # 把对面的关一遍
+        if side == 'l':  # 改右边的
+            s = 'r'
+        else:
+            s = 'l'
+        document[f'quick_portal_{s}'].classList.remove('active')
+        document[f'quick_none_{s}'].classList.add('active')
+        document[f'quick_move_{s}'].classList.remove('my-success')
+        document[f'quick_move_{s}'].text = i18n['quick_move']  # '快速移动'
+        quick[s] = 'none'
+        # 清除portal相关目标信息
+        if quick['portal'] != None:
+            quick['portal']['img'].classList.remove('glow-for-portal')
+            quick['portal'] = None
+    # 同步quick标记的状态
+    quick[side] = to
+
+
+###########################
+# 元素大小
+def load_item_side_len():  # 从localStorage加载元素大小
+    global item_side_len
+    l = window.localStorage.getItem('item_side_len_l')
+    r = window.localStorage.getItem('item_side_len_r')
+    if l:
+        item_side_len['l'] = int(l)
+        item_side_len['r'] = int(r)
+    else:
+        item_side_len['l'] = 100
+        item_side_len['r'] = 100
+        save_item_side_len()
+    document['item_side_len_l'].value = item_side_len['l']
+    document['item_side_len_r'].value = item_side_len['r']
+    draw_scroll_safe_zone()
+
+
+def save_item_side_len():  # 保存元素大小到localStorage
+    window.localStorage.setItem('item_side_len_l', item_side_len['l'])
+    window.localStorage.setItem('item_side_len_r', item_side_len['r'])
+    draw_scroll_safe_zone()
+
+
+def draw_scroll_safe_zone(side=''):  # 绘制滚动安全区
+    # print('DBG: 绘制滚动安全区')
+    sides = ['l', 'r']
+    if side in sides:
+        sides = [side]
+    for side in sides:
+        width = document[f'item_area_{side}'].getBoundingClientRect().width
+        percentage = 100 - int((1-(width//item_side_len[side])*item_side_len[side]/width)*100)
+        background = f'linear-gradient(to right, white {percentage}%, {config.SCROLL_SAFE_ZONE_COLOR} {percentage}%)'
+        # print(f'DBG：{side}绘制设置为{background}')
+        document[f'item_area_{side}'].style.background = background
+
+
+def on_item_side_len_dropdown_hide(event):  # “元素大小”下拉菜单关闭时
+    global item_side_len
+    print("DBG: 下拉菜单收起")
+    # 获取触发事件的下拉菜单 ID
+    dropdown_id = event.target.id
+    side = dropdown_id[-1]
+    item_side_len[side] = int(document[f'item_side_len_{side}'].value)
+    # print(f"DBG: {side}下拉菜单收起，大小{item_side_len[side]}")
+    load_operating_area_items(side)
+    save_item_side_len()
+
+
+###########################
+# 面包屑
+def get_breadcrumb_path(id):  # 根据id返回路径
+    def executor(resolve, reject):
+        def on_complete(req):
+            nonlocal id
+            if req.status != 200:
+                my_alert(i18n['oa_get_item_info_failed'])  # ('获取元素信息失败！')
+                return
+            data = json.loads(req.text)
+            # print(f'DBG：get_breadcrumb_path结果为{data}')
+            if data['status'] == 'success':
+                data = data['data']
+                resolve(data)
+            else:
+                # reject(data['message'])
+                my_alert(i18n['oa_find_no_id_sw2root_1' + str(id) + i18n['oa_find_no_id_sw2root_2']])  # (f'未找到id为{id}的元素，路径已切换至根目录')
+                resolve([('/', 0)])
+        ajax.get(f'/operating_area/get_breadcrumb_path', data={'id': id}, oncomplete=on_complete)
+    return Promise(executor)
+
+
+def load_breadcrumb():  # 从localStorage加载面包屑
+    global breadcrumb
+    l = window.localStorage.getItem('bread_crumb_l')
+    r = window.localStorage.getItem('bread_crumb_r')
+    breadcrumb['l']['breadcrumb'] = []
+    breadcrumb['r']['breadcrumb'] = []
+    if l:
+        l = int(l)
+        r = int(r)
+    else:
+        l = 0
+        r = 0
+    def set_breadcrumb(side, path):
+        breadcrumb[side]['breadcrumb'] = path
+        draw_breadcrumb(side)
+        breadcrumb_quick_switch_available(side)
+    get_breadcrumb_path(l).then(
+        lambda path: set_breadcrumb('l', path)
+    )
+    get_breadcrumb_path(r).then(
+        lambda path: set_breadcrumb('r', path)
+    )
+
+
+def draw_breadcrumb(side=''):  # 绘制面包屑
+    save_breadcrumb(side)
+    # 我管你这那的，直接删掉重画
+    sides = ['l', 'r']
+    if side in sides:
+        sides = [side]
+    
+    for side in sides:
+        target = document[f'breadcrumb_{side}']
+        target.html = ''
+        for i in breadcrumb[side]['breadcrumb']:
+            # 创建 <li> 元素
+            li = document.createElement('li')
+            li.classList.add('breadcrumb-item')  # 添加类名
+            # 创建 <button> 元素
+            button = document.createElement('button')
+            button.classList.add('btn', 'btn-light', 'p-0', 'ps-1', 'pe-1')  # 添加多个类名
+            button.setAttribute('data-id', i[1])  # 设置 data-id 属性
+            button.textContent = i[0]  # 设置按钮的文字内容
+            button.bind('click', lambda ev, id=i[1], s=side: breadcrumb_on_click(id, s))
+            # 将 <button> 添加到 <li>
+            li.appendChild(button)
+            # 将 <li> 添加到容器中
+            target.appendChild(li)
+        scroll_to_end(side)
+        load_operating_area_items(side)  # 路径变了肯定要重画元素们
+        item_area_set_max_height(side=side)  # 面包屑高度会影响计算
+
+
+def save_breadcrumb(side=''):  # 保存最后的面包屑id到localStorage
+    sides = ['l', 'r']
+    if side in sides:
+        sides = [side]
+    for side in sides:
+        window.localStorage.setItem(f'bread_crumb_{side}', breadcrumb[side]['breadcrumb'][-1][1])
+
+
+def breadcrumb_on_click(id, side):  # 点击面包屑（进入目录也可调用）
+    global breadcrumb
+    # print(f'DBG：切换{side}目录指向{id}')
+    breadcrumb[side]['stack_forward'] = []
+    breadcrumb[side]['stack_back'].append(breadcrumb[side]['breadcrumb'][-1][1])
+    def set_breadcrumb(side, path):
+        breadcrumb[side]['breadcrumb'] = path
+        draw_breadcrumb(side)
+        breadcrumb_quick_switch_available(side)
+        # load_operating_area_items(side)  # 已在draw里包含
+    get_breadcrumb_path(id).then(
+        lambda path: set_breadcrumb(side, path)
+    )
+    
+
+def scroll_to_end(side=''):  # 面包屑滚到最右
+    if side != 'r':
+        target = document['breadcrumb_l']
+        target.scrollLeft = target.scrollWidth
+    if side != 'l':
+        target = document['breadcrumb_r']
+        target.scrollLeft = target.scrollWidth
+
+
+def open_manual_input_breadcrumb(side):  # 手工输入面包屑
+    # 字符串路径初始化
+    for s in ['l', 'r']:
+        now_path = ''
+        text_area = document[f'now_breadcrumb_path_{s}']
+        for i in range(1, len(breadcrumb[s]['breadcrumb'])):
+            now_path += '/'+breadcrumb[s]['breadcrumb'][i][0]
+        if now_path == '':  # 路径在根
+            now_path = '/'
+        text_area.value = now_path
+    # 其他部分初始化显示
+    document['manual_input_breadcrumb'].classList.remove('is-invalid')
+    document['manual_input_breadcrumb_jump'].disabled = False
+    input_area = document['manual_input_breadcrumb']
+    input_area.value = ''
+    input_area.attrs['data-side'] = side
+    if side == 'l':
+        document['manual_input_breadcrumb_lable'].text = i18n['manual_input_breadcrumb_lable_l']  # '左侧直接跳转'
+    else:
+        document['manual_input_breadcrumb_lable'].text = i18n['manual_input_breadcrumb_lable_r']  # '右侧直接跳转'
+
+
+def jump2manual_input_breadcrumb(ev=None):  # 跳转手工输入的位置
+    document['manual_input_breadcrumb'].classList.remove('is-invalid')
+    item_name = document['manual_input_breadcrumb'].value
+    if item_name == '':
+        document['manual_input_breadcrumb_feedback'].text = i18n['manual_input_breadcrumb_feedback']  # '请输入物品名称'
+        document['manual_input_breadcrumb'].classList.add('is-invalid')
+        return
+    document['manual_input_breadcrumb_jump'].disabled = True
+    def on_complete(req):
+        document['manual_input_breadcrumb_jump'].disabled = False
+        if req.status != 200:
+            my_alert(i18n['oa_server_error'])  # ('访问服务器出错')
+        else:
+            data = json.loads(req.text)
+            if data['status'] == 'success':
+                side = document['manual_input_breadcrumb'].attrs['data-side']
+                breadcrumb_on_click(data['id'], side)
+                document['close_manual_input_breadcrumb_form'].click()  # 关闭窗口
+            elif data['status'] == 'error':
+                my_alert(data['message'])
+            else:  # warning
+                document['manual_input_breadcrumb_feedback'].text = data['message']
+                document['manual_input_breadcrumb'].classList.add('is-invalid')
+    ajax.get('/operating_area/name2id', data={'name': item_name}, oncomplete=on_complete)
+
+
+###########################
+# 目录快捷键
+def breadcrumb_quick_switch_available(side=''):  # 返回、前进、上一层按钮激活与禁用，side可传入l或r或空
+    # print('DBG: 调整返回、前进、上一层按钮激活与禁用')
+    sides = ['l', 'r']
+    if side in sides:
+        sides = [side]
+    
+    for side in sides:
+        if len(breadcrumb[side]['breadcrumb']) == 1:  # 上一层禁用
+            document[f'parent_btn_{side}'].classList.remove('div2btn')
+            document[f'parent_ico_{side}'].style.color = 'gray'
+        elif len(breadcrumb[side]['breadcrumb']) > 1:
+            document[f'parent_btn_{side}'].classList.add('div2btn')
+            document[f'parent_ico_{side}'].style.color = 'black'
+        else:
+            print(f'DBG：刷新目录快捷键时面包屑后台数据为空？不可能，绝对不可能！')
+        if len(breadcrumb[side]['stack_back']) == 0:  # 返回禁用
+            document[f'back_btn_{side}'].classList.remove('div2btn')
+            document[f'back_ico_{side}'].style.color = 'gray'
+        else:
+            document[f'back_btn_{side}'].classList.add('div2btn')
+            document[f'back_ico_{side}'].style.color = 'black'
+        if len(breadcrumb[side]['stack_forward']) == 0:  # 前进禁用
+            document[f'forward_btn_{side}'].classList.remove('div2btn')
+            document[f'forward_ico_{side}'].style.color = 'gray'
+        else:
+            document[f'forward_btn_{side}'].classList.add('div2btn')
+            document[f'forward_ico_{side}'].style.color = 'black'
+        # 控制栈长度
+        if len(breadcrumb[side]['stack_back']) > config.MAX_BACK_FORWARD_STACK:
+            breadcrumb[side]['stack_back'] = breadcrumb[side]['stack_back'][-config.MAX_BACK_FORWARD_STACK:]
+        if len(breadcrumb[side]['stack_forward']) > config.MAX_BACK_FORWARD_STACK:
+            breadcrumb[side]['stack_forward'] = breadcrumb[side]['stack_forward'][-config.MAX_BACK_FORWARD_STACK:]
+
+
+def breadcrumb_quick_switch(side, direction):  # 返回、前进、上一层按钮
+    global breadcrumb
+    id = ''
+    if direction == 'back':
+        if 'div2btn' in document[f'back_btn_{side}'].classList:
+            id = breadcrumb[side]['stack_back'].pop()
+            breadcrumb[side]['stack_forward'].append(breadcrumb[side]['breadcrumb'][-1][1])
+    elif direction == 'forward':
+        if 'div2btn' in document[f'forward_btn_{side}'].classList:
+            id = breadcrumb[side]['stack_forward'].pop()
+            breadcrumb[side]['stack_back'].append(breadcrumb[side]['breadcrumb'][-1][1])
+    else:  # parent
+        if 'div2btn' in document[f'parent_btn_{side}'].classList:
+            id = breadcrumb[side]['breadcrumb'][-2][1]
+            breadcrumb[side]['stack_back'].append(breadcrumb[side]['breadcrumb'][-1][1])
+            breadcrumb[side]['stack_forward'] = []
+    def set_breadcrumb(side, path):
+        breadcrumb[side]['breadcrumb'] = path
+        draw_breadcrumb(side)
+        breadcrumb_quick_switch_available(side)
+    if id != '':
+        get_breadcrumb_path(id).then(
+            lambda path: set_breadcrumb(side, path)
+        )
+
+
+###########################
+# 新增元素按钮
+def init_item_classes_properties():  # 初始化分类与属性
+    target = document['new_item_class']
+    target.html = ''
+    document['new_item_property_area'].html = ''
+    def on_complete(req):
+        if req.status != 200:
+            my_alert(i18n['oa_load_class_error'])  # ('加载分类数据失败！')
+            return
+        data = json.loads(req.text)
+        data = data['classes']
+        target <= html.OPTION(i18n['oa_please_select'], value="", disabled="", selected="")  # "请选择"
+        for i in data:
+            target <= window.Option.new(f"{i}", f"{i}")
+    ajax.get('/manage_attributes/get_classes', oncomplete=on_complete)
+
+
+def remove_invalid_tip():  # 移除输入框的感叹号
+    universal_bry.remove_invalid_tip()
+
+
+def init_add_new_item(ev=None):  # 初始化新增元素界面
+    document['add_item_form_title'].text = f''
+    document['add_item_form_title'].attrs['data-id'] = ''
+    document['cropped_img'].src = ''
+    document['cropped_img_area'].style.display = 'none'
+    document['img_input_preview'].src = ''
+    document['img_input_preview'].style.display = 'none'
+    if cropper:
+        cropper.destroy()
+    document['new_item_name'].value = ''
+    document['new_item_name_auto_rename'].checked = True if window.localStorage.getItem('new_item_name_auto_rename') == '1' else False
+    # init_item_classes_properties()  # 变成点开弹窗时加载了
+    document['new_item_class'].value = ''
+    document['new_item_property_area'].html = ''
+    document['new_item_is_virtual_false'].checked = True
+    document['new_item_expiration_time'].value = ''
+    document['new_item_comment'].value = ''
+    document['img_input'].value = ''
+    document['img_input_preview'].src = ''
+    document['large_image'].src = ''
+    document['use_img_size_settings'].checked = False if window.localStorage.getItem('use_img_size_settings') == '0' else True
+    document['crop_img_btn'].disabled = True
+    document['btn_item_delete'].style.display = 'none'
+    document['btn_item_add_change'].text = i18n['btn_item_add_change_add']  # '新增'
+    document['btn_item_add_change'].disabled = False
+    remove_invalid_tip()
+
+
+def open_add_new_item_form(side):  # 打开新增元素界面
+    global add_change_item_side
+    init_item_classes_properties()
+    document['add_item_form_title'].text = f'【{breadcrumb[side]['breadcrumb'][-1][0]}】{i18n['add_item_form_title_add']}'  #  新增元素'
+    add_change_item_side = side
+    # 绑定按钮
+    document['btn_item_delete'].unbind('click')
+    document['btn_item_add_change'].unbind('click')
+    document['btn_item_add_change'].bind('click', lambda ev: add_change_item())
+
+
+def auto_rename_onclick(ev=None):  # 点击“重名自动加编号”复选框
+    # print(f'DBG：自动重命名checked状态为{document["new_item_name_auto_rename"].checked}')
+    window.localStorage.setItem('new_item_name_auto_rename', '1' if document['new_item_name_auto_rename'].checked else '0')
+
+
+def load_new_item_properties(db_data, item_properties={}):  # 根据给定properties数据去渲染页面properties内容
+    universal_bry.load_new_item_properties(db_data, item_properties)
+
+
+def get_new_item_properties(ev=None):  # 分类选定后，加载属性
+    universal_bry.get_new_item_properties(ev)
+
+
+def upload_img(ev):  # （前端）上传图片
+    document['img_input'].click()
+
+
+def handle_img_change(ev):  # 上传图片触发
+    try:
+        file = ev.target.files[0]
+    except IndexError:  # 取消上传了
+        return
+    if file:
+        # 创建 FileReader 对象
+        reader = window.FileReader.new()
+        def on_load(e):
+            global cropper
+            # 获取图片元素并设置其 src 属性
+            img_element = document['img_input_preview']
+            img_element.src = e.target.result
+            img_element.style.display = 'block'
+            # 如果已有 cropper 实例，销毁它
+            if cropper:
+                cropper.destroy()
+            # 初始化新的 cropper 实例
+            cropper = window.Cropper.new(img_element, {
+                'aspectRatio': 1,
+                'viewMode': 2,
+            })
+            # 启用应用按钮
+            document['crop_img_btn'].disabled = False
+        # 设置 FileReader 的 onload 回调函数
+        reader.onload = on_load
+        # 读取文件内容为 Data URL
+        reader.readAsDataURL(file)
+
+
+def apply_cropped_img(ev):  # 确认裁剪结果
+    global cropper
+    window.localStorage.setItem('use_img_size_settings', '1' if document['use_img_size_settings'].checked else '0')
+    # 获取裁剪后的 Canvas
+    canvas = cropper.getCroppedCanvas()
+    if document['use_img_size_settings'].checked:
+        if canvas.width > config.PIC_WIDTH_MAX:
+            new_canvas = html.CANVAS(width=config.PIC_WIDTH_MAX, height=config.PIC_WIDTH_MAX)
+            ctx = new_canvas.getContext('2d')
+            ctx.drawImage(canvas, 0, 0, canvas.width, canvas.height, 0, 0, config.PIC_WIDTH_MAX, config.PIC_WIDTH_MAX)
+            canvas = new_canvas
+        cropped_image_base64 = canvas.toDataURL('image/jpeg', config.PIC_QUALITY)
+    else:
+        cropped_image_base64 = canvas.toDataURL('image/jpeg', 1)
+    document['cropped_img'].src = cropped_image_base64
+    document['cropped_img_area'].style.display = 'block'
+    if len(cropped_image_base64) > 1024*1024:
+        document['btn_item_add_change'].text = document['btn_item_add_change'].text + i18n['btn_item_add_change_big_img']  # '(图片较大，请耐心等待)'
+    else:
+        document['btn_item_add_change'].text = document['btn_item_add_change'].text.replace(i18n['btn_item_add_change_big_img'], '')  # '(图片较大，请耐心等待)'
+
+
+def view_large_image(ev):  # 查看大图
+    # print(f'DBG：查看大图，原src为{document["cropped_img"].src}')
+    document['large_image'].src = ''
+    # 根据cropped_img src判断大图怎么获取，然后将数据加载至大图区
+    if document['cropped_img'].src.startswith(('/uploaded_pic/', 'http')):
+        document['large_image'].src = document['cropped_img'].src.replace('_sm', '')
+    else:  # 只剩下空白和原始数据两种情况了，都可以直接复制src过来
+        document['large_image'].src = document['cropped_img'].src
+
+
+def add_change_item(ev=None):  # 新增/更新元素
+    def on_resolve(ret):
+        if ret['mode'] == 'oa_add':
+            front_add_item_after_auto(ret['target_id'], ret['id'], ret['filename'], ret['name'], add_change_item_side)
+        elif ret['mode'] == 'oa_change':  # ODOT 为什么是重新拉取而不是直接在前端修改？
+            if breadcrumb['l']['breadcrumb'][-1][1] == breadcrumb['r']['breadcrumb'][-1][1]:  # 路径结尾一样，所以两边都要更新元素
+                sides = ['l', 'r']
+            else:
+                sides = [add_change_item_side]
+            for side in sides:
+                load_operating_area_items(side)
+    universal_bry.add_change_item(parentID=breadcrumb[add_change_item_side]['breadcrumb'][-1][1]).then(
+        lambda data: on_resolve(data)
+    )
+
+
+###########################
+# 显示元素详情
+def show_item_info(target_id):  # 加载元素详情
+    # 绑定模态框按钮
+    document['btn_item_delete'].unbind('click')
+    document['btn_item_add_change'].unbind('click')
+    document['btn_item_delete'].bind('click', del_item)
+    document['btn_item_add_change'].bind('click', lambda ev: add_change_item())
+    universal_bry.show_item_info(target_id)
+
+
+def del_item(ev=None):  # 删除元素
+    def on_complete(req):
+        if req.status != 200:
+            my_alert(req.status)
+        else:
+            data = json.loads(req.text)
+            if data['status'] == 'success':
+                my_success(i18n['oa_del_success_1'] + str(data["del_count"]) + i18n['oa_del_success_2'])  # (f'删除成功，共删除{data["del_count"]}个元素')
+                document['close_add_change_item_form'].click()  # 关闭窗口
+                front_remove_item_auto(add_change_item_side, int(data['removed_id']))
+            else:
+                my_alert(data['message'])
+    ajax.post('/operating_area/del_item', data=json.dumps({'id': document['add_item_form_title'].attrs['data-id']}), 
+              headers={"Content-Type": "application/json"}, oncomplete=on_complete)
+
+
+###########################
+# 元素逻辑
+# oa前缀代表operating_area页面
+oa_triggered_event = ''  # 用来记录触发的是什么事件，drag long click
+oa_origin_element = None  # 记录谁被鼠标按下
+oa_clone_element = None  # 记录被鼠标按下的元素的克隆
+oa_origin_pos = (0, 0)  # 记录初始按下时的鼠标位置
+oa_last_target_element = None  # 记录最后被on_over的元素
+oa_idtimer = 0  # 记录定时器，方便清除
+oa_now_pos = (0, 0)  # 用来进行自动滚动
+oa_auto_scroll_id = None  # 记录自动滚动事件的id用以停止自动滚动
+oa_on_down_time = None  # 按下的时间戳ms
+
+
+def oa_get_focus_pos_element(ev):
+    # 判断是鼠标事件还是触摸事件，并获取坐标
+    if hasattr(ev, 'pageX') and hasattr(ev, 'pageY'):  # 鼠标事件
+        x, y = ev.pageX, ev.pageY
+        element = ev.target
+        # print(f"DBG: 鼠标当前坐标:(x={x}, y={y})元素为{element}")
+    elif hasattr(ev, 'changedTouches'):  # 触摸事件
+        x, y = ev.changedTouches[0].pageX, ev.changedTouches[0].pageY
+        element = document.elementFromPoint(x, y)
+        # print(f"DBG: 触摸当前坐标(x={x}, y={y})元素为{element}")
+    else:
+        x, y, element = None, None, None
+        # print(f"DBG: 没检测到坐标！！！")
+    return x, y, element
+
+
+def oa_on_down(ev):  # 按下
+    global oa_triggered_event, oa_origin_element, oa_clone_element, oa_origin_pos, oa_last_target_element, oa_idtimer, oa_on_down_time
+    # 保证按下的是img范围
+    x, y, t = oa_get_focus_pos_element(ev)
+    rect = t.getBoundingClientRect()
+    width = rect.width
+    if x < rect.left + width*(0.5-config.PIC_WIDTH_RATIO/2) or rect.left + width*(0.5+config.PIC_WIDTH_RATIO/2) < x \
+        or y < rect.top + width*(0.5-config.PIC_WIDTH_RATIO/2) or rect.top + width*(0.5+config.PIC_WIDTH_RATIO/2) < y:  # 不是图片范围，不响应
+        return
+    # print(f"DBG: on_down()")
+    disable_selection()  # 防止选择文本
+    ev.preventDefault()  # 阻止移动端的侧滑返回和下拉刷新
+    # 初始化一些值
+    oa_triggered_event = ''
+    oa_origin_element = t
+    oa_clone_element = None
+    oa_origin_pos = (x, y)
+    oa_last_target_element = None
+    oa_on_down_time = int(time.time()*1000)
+    # 更改样式
+    side = oa_origin_element.dataset.side
+    if multi[side] == False and quick[side] == 'none':  # 普通点击才改
+        origin_element_img = oa_origin_element.getElementsByTagName('img')[0]
+        origin_element_img.style.opacity = "0.5"  # 改变透明度
+    # 绑定事件
+    oa_idtimer += 1
+    timer.set_timeout(oa_long_press, config.LONG_PRESS_THRESHOLD, ev, oa_idtimer)
+    document.bind('mousemove', oa_update_position)
+    document.bind('touchmove', oa_update_position)
+    document.bind('mouseup', oa_on_up)
+    document.bind('touchend', oa_on_up)
+
+    
+def oa_update_position(ev):  # 更新鼠标/触摸位置
+    global oa_clone_element, oa_last_target_element, oa_triggered_event, oa_now_pos, oa_auto_scroll_id
+    x, y, now_element =oa_get_focus_pos_element(ev)
+    if x is None:
+        my_alert(i18n['oa_no_mouse_pos'])  # ('无法得到坐标！')
+    oa_now_pos = (x, y)
+    if quick[oa_origin_element.attrs['data-side']] != 'none':  # 有快速移动时禁止拖拽
+        return
+    if oa_clone_element is None:
+        if (abs(x - oa_origin_pos[0]) > 10 or abs(y - oa_origin_pos[1]) > 10) and oa_triggered_event == '':  # 可以准备拖拽样式了
+            oa_triggered_event = 'drag'  # 看看情况，如果误触太频繁，可以考虑动态触发clone或交给用户调参
+            clone = oa_origin_element.cloneNode(True)
+            clone.dataset['id'] = '-1'  # DBG时识别元素
+            clone.style.position = "absolute"
+            origin_rect = oa_origin_element.getBoundingClientRect()
+            clone.style.left = f'{origin_rect.left}px'
+            clone.style.top = f'{origin_rect.top}px'
+            clone.style.pointerEvents = "none"
+            clone_divs = list(clone.getElementsByTagName('div'))
+            for div in clone_divs:
+                div.remove()
+            clone_img = clone.getElementsByTagName('img')[0]
+            clone_img.style.opacity = "0.5"  # 改变透明度
+            document.body.appendChild(clone)  # 保证有动效
+            clone_rect = clone.getBoundingClientRect()
+            clone.style.left = f'{x - clone_rect.width / 2}px'
+            clone.style.top = f'{y - clone_rect.height / 2}px'
+            clone.style.pointerEvents = "none"
+            zoomed_side_len = f"{clone_rect.width * config.PIC_WIDTH_RATIO * config.PIC_DRAGING_ZOOM_RATIO}px"  # 计算缩放后的边长
+            clone_img.style.width = zoomed_side_len   # 改变宽度
+            clone_img.style.height = zoomed_side_len  # 改变高度
+            oa_clone_element = clone
+            # 启动自动滚动监听
+            oa_auto_scroll_id = window.requestAnimationFrame(lambda event: oa_auto_scroll(event))
+            # 多选时加重多选颜色
+            if multi[oa_origin_element.attrs['data-side']]:
+                for div in document[f'item_area_{oa_origin_element.attrs["data-side"]}'].children:
+                    if oa_origin_element == div:  # 如果用户拖拽不亮的元素，那就把不亮的元素一起点亮，方便后续统一处理
+                        div.getElementsByTagName('img')[0].classList.add('glow-for-multi')
+                    if 'glow-for-multi' in div.getElementsByTagName('img')[0].classList:
+                        div.getElementsByTagName('img')[0].classList.add('glow-for-multi-plus')
+    else:
+        clone_rect = oa_clone_element.getBoundingClientRect()
+        oa_clone_element.style.left = f'{x - clone_rect.width / 2}px'
+        oa_clone_element.style.top = f'{y - clone_rect.height / 2}px'
+
+    # 处理滑过逻辑
+    if now_element != oa_last_target_element:  # 当前元素与过往元素不同
+        if oa_last_target_element != None:  # 过往元素不为空，则需要清除过往元素的发光
+            if 'id' in oa_last_target_element.dataset:  # item元素
+                img = oa_last_target_element.getElementsByTagName('img')[0]
+                img.classList.remove('glow')
+                img.classList.remove('left-glow')
+                img.classList.remove('right-glow')
+            elif oa_last_target_element.id in ['item_area_l', 'item_area_r']:  # area区域
+                if len(oa_last_target_element.children):  # 有子元素，则应在子元素删除左发光
+                    img = oa_last_target_element.children[0].getElementsByTagName('img')[0]
+                    img.classList.remove('left-glow')
+                else:
+                    oa_last_target_element.classList.remove('glow')
+            oa_last_target_element = None  # 因为now_element可能不是能交互的对象，所以这里清空，等下方确认是可交互对象后再置oa_last_target_element
+    # print(f'DBG: now_element{now_element} origin_element{origin_element}')
+    if now_element != oa_origin_element and (oa_triggered_event == 'drag' or oa_triggered_event == ''):  # 当前元素与初始元素不同，且可触发drag
+        oa_triggered_event = 'drag'
+        if 'id' in now_element.dataset:  # 如果是应触发滑过逻辑的区域，则添加发光
+            oa_last_target_element = now_element
+            rect = now_element.getBoundingClientRect()
+            img = now_element.getElementsByTagName('img')[0]
+            width = rect.width
+            left_area = rect.left + width*(0.5-config.TRIGGER_INCLUSION_RATIO/2)
+            right_area = rect.left + width*(0.5+config.TRIGGER_INCLUSION_RATIO/2)
+            if x < left_area:
+                img.classList.remove('glow')
+                img.classList.remove('right-glow')
+                img.classList.add('left-glow')
+            elif x < right_area:
+                img.classList.remove('left-glow')
+                img.classList.remove('right-glow')
+                img.classList.add('glow')
+            else:
+                img.classList.remove('left-glow')
+                img.classList.remove('glow')
+                img.classList.add('right-glow')
+        elif now_element.id == 'item_area_l' or now_element.id == 'item_area_r':  # 滑到大区域了
+            # print(f'DBG： 已移动到{now_element.id}')
+            oa_last_target_element = now_element
+            if len(now_element.children):  # 有子元素，则应在子元素添加左发光
+                first_child = now_element.children[0]
+                if first_child != oa_origin_element and now_element.id[-1] != oa_origin_element.attrs['data-side']:  # 第一个元素不是自己，且拖拽到了对侧，才添加发光
+                    img = first_child.getElementsByTagName('img')[0]
+                    img.classList.remove('glow')
+                    img.classList.remove('right-glow')
+                    img.classList.add('left-glow')
+            else:
+                now_element.classList.add('glow')
+
+
+def fly_img(img_element, x, y, fly_s=0.1, zoom=0.5):  # 将img飞到指定位置
+    # print(f'DBG：飞img{img_element}')
+    clone = img_element.cloneNode(True)
+    clone.style = {
+        'position': 'absolute',
+        'pointer-events': 'none',
+        'transition': f'transform {fly_s}s ease, left {fly_s}s ease-in, top {fly_s}s ease-in',
+        'opacity': '0.5'
+    }
+    rect = img_element.getBoundingClientRect()
+    clone.style.left = f"{rect.left}px"
+    clone.style.top = f"{rect.top}px"
+    clone.style.width = f'{rect.width}px'
+    clone.style.height = f'{rect.width}px'
+    document <= clone
+    def update_pos():
+        clone.style.left = f"{x - rect.width*zoom/2}px"
+        clone.style.top = f"{y - rect.width*zoom/2}px"
+        zoomed_side_len = f'{rect.width*zoom}px'
+        clone.style.width = zoomed_side_len   # 改变宽度
+        clone.style.height = zoomed_side_len  # 改变高度
+    window.requestAnimationFrame(lambda _: update_pos())
+    def del_clone():
+        clone.remove()
+    timer.set_timeout(del_clone, fly_s*1000)
+
+
+def oa_auto_scroll(event):  # item_area自动滚动
+    global oa_auto_scroll_id
+    # print(f'DBG：自动滚动执行中')
+    if oa_now_pos[0] < document['item_area_l'].getBoundingClientRect().right:
+        rect = document['item_area_l'].getBoundingClientRect()
+        side = 'l'
+    elif oa_now_pos[0] > document['item_area_r'].getBoundingClientRect().left:
+        rect = document['item_area_r'].getBoundingClientRect()
+        side = 'r'
+    else:
+        rect = None
+    if rect != None:
+        # 获取鼠标相对于容器的位置
+        container = document[f'item_area_{side}']
+        mouse_y = oa_now_pos[1] - rect.top
+        # 计算滚动量
+        scroll_y = 0
+        EDGE_THRESHOLD = item_side_len[side]//2
+        EDGE_MAX_SPEED_THRESHOLD = item_side_len[side]*(1-config.PIC_WIDTH_RATIO)//2
+        # 输出检测的各参数
+        # print(f'DBG：mouse_y{mouse_y},EDGE_THRESHOLE{EDGE_THRESHOLD},EDGE_MAX_SPEED_THRESHOLD{EDGE_MAX_SPEED_THRESHOLD},底部边缘{rect.height - EDGE_THRESHOLD}')
+        # 检测顶部边缘
+        if mouse_y < EDGE_THRESHOLD and container.scrollTop > 0:
+            if mouse_y < EDGE_MAX_SPEED_THRESHOLD:
+                scroll_y = -config.AUTO_SCROLL_MAX_SPEED
+            else:
+                scroll_y = -config.AUTO_SCROLL_MAX_SPEED*(EDGE_THRESHOLD-mouse_y)//(EDGE_THRESHOLD-EDGE_MAX_SPEED_THRESHOLD)
+        # 检测底部边缘
+        elif mouse_y > (rect.height - EDGE_THRESHOLD) and container.scrollTop < container.scrollHeight - rect.height:
+            if mouse_y > rect.height - EDGE_MAX_SPEED_THRESHOLD:
+                scroll_y = config.AUTO_SCROLL_MAX_SPEED
+            else:
+                scroll_y = config.AUTO_SCROLL_MAX_SPEED*(mouse_y-(rect.height-EDGE_THRESHOLD))//(EDGE_THRESHOLD-EDGE_MAX_SPEED_THRESHOLD)
+        # 执行滚动
+        if scroll_y != 0:
+            container.scrollBy(0, scroll_y)
+    # 继续监听滚动
+    if oa_auto_scroll_id is not None:
+        oa_auto_scroll_id = window.requestAnimationFrame(lambda ev: oa_auto_scroll(ev))
+
+
+def oa_long_press(ev, id):  # 长按
+    global oa_triggered_event, add_change_item_side
+    if oa_triggered_event == '' and id == oa_idtimer:  # 防止前朝的剑斩本朝的官
+        oa_triggered_event = 'long'
+        side = oa_origin_element.attrs['data-side']
+        if multi[side] == False:# and quick[side] == 'none':
+            # 展现元素详情
+            add_change_item_side = side
+            show_item_info(oa_origin_element.attrs['data-id'])
+        elif multi[side] == True:
+            # 在多选时，长按可以快速多选。(相当于按shift的逻辑)
+            if multi[f'{side}_quick'] == False:
+                multi[f'{side}_quick'] = True
+                oa_origin_element.getElementsByTagName('img')[0].classList.add('glow-for-multi-quick')
+            else:
+                multi[f'{side}_quick'] = False
+                foundStart = False  # 是否找到起始位置
+                # 是激活还是取消激活，根据第二次长按的元素的状态决定
+                if 'glow-for-multi' not in oa_origin_element.getElementsByTagName('img')[0].classList:
+                    needActivate = True
+                else:
+                    needActivate = False
+                for div in document[f'item_area_{side}'].children:
+                    # 判断是否要开始/结束转化
+                    if div == oa_origin_element or 'glow-for-multi-quick' in div.getElementsByTagName('img')[0].classList:
+                        # 如果现在选择的和之前的一样，认为是取消选择开头那个
+                        if div == oa_origin_element and 'glow-for-multi-quick' in div.getElementsByTagName('img')[0].classList:
+                            div.getElementsByTagName('img')[0].classList.remove('glow-for-multi-quick')  # 把标记去掉
+                            break
+                        div.getElementsByTagName('img')[0].classList.remove('glow-for-multi-quick')  # 把标记去掉
+                        if foundStart == False:
+                            foundStart = True
+                        else:
+                            switchActive(div)
+                            break
+                    # 进行选择状态转换
+                    def switchActive(targetDiv):
+                        nonlocal needActivate
+                        if needActivate:
+                            div.getElementsByTagName('img')[0].classList.add('glow-for-multi')
+                        else:
+                            div.getElementsByTagName('img')[0].classList.remove('glow-for-multi')
+                    if foundStart:
+                        switchActive(div)
+
+
+def oa_on_up(ev):  # 抬起
+    global oa_triggered_event, oa_last_target_element, oa_origin_element, oa_auto_scroll_id
+    # 解绑事件
+    document.unbind('mousemove', oa_update_position)
+    document.unbind('touchmove', oa_update_position)
+    document.unbind('mouseup', oa_on_up)
+    document.unbind('touchend', oa_on_up)
+    window.cancelAnimationFrame(oa_auto_scroll_id)
+    oa_auto_scroll_id = None
+    enable_selection()
+    # 清除发光
+    target_element = ''  # 目标元素square_item_parent, destination
+    target_func = ''  # 目标动作
+    if oa_last_target_element is not None and 'id' in oa_last_target_element.dataset:  # item型发光
+        target_element = oa_last_target_element
+        img = oa_last_target_element.getElementsByTagName('img')[0]
+        if 'glow' in img.classList:
+            target_func = 'i'  # in进入
+            img.classList.remove('glow')
+        elif 'left-glow' in img.classList:
+            target_func = 'l'  # left左侧放置
+            img.classList.remove('left-glow')
+        elif 'right-glow' in img.classList:
+            target_func = 'r'  # right右侧放置
+            img.classList.remove('right-glow')
+    elif oa_last_target_element is not None and oa_last_target_element.id in ['item_area_l', 'item_area_r']:  # area型发光
+        if len(oa_last_target_element.children):  # 有子元素，则应在子元素删除左发光
+            target_element = oa_last_target_element.children[0]
+            if target_element != oa_origin_element and oa_last_target_element.id[-1] != oa_origin_element.attrs['data-side']:  # 第一个元素不是自己，且拖拽在对面，才有动作
+                target_func = 'l'
+                img = target_element.getElementsByTagName('img')[0]
+                img.classList.remove('left-glow')
+            else:
+                oa_triggered_event = 'none'
+        else:
+            target_element = html.DIV(data_id=breadcrumb[oa_last_target_element.id[-1]]['breadcrumb'][-1][1], 
+                                      data_side=oa_last_target_element.id[-1])  # 没有square_item_parent class，可以从此点判断
+            target_func = 'i'
+            oa_last_target_element.classList.remove('glow')
+    # 清除克隆
+    if oa_clone_element is not None:
+        oa_clone_element.remove()
+    # 获取触发事件的元素
+    x, y, element = oa_get_focus_pos_element(ev)
+    # print(f"DBG: 抬起触发的元素id为{element.id}")
+    if oa_triggered_event == '':
+        oa_triggered_event = 'click'
+    elif oa_triggered_event == 'drag' and ('id' not in element.dataset or oa_origin_element == element) \
+        and element.id not in ['item_area_l', 'item_area_r']:  # 白drag了
+        oa_triggered_event = 'none'
+    print(f'DBG: 判定触发的效果-{oa_triggered_event}')
+    def backend_item_moved(from_square_item_parent, to_element, mode, flyImgTime=-1):
+        # print(f'DBG：进行移动，从{from_square_item_parent}\n到{to_element}\n模式{mode}')
+        # 为插入做信息准备
+        img = from_square_item_parent.getElementsByTagName('img')[0]
+        if img.getAttribute('src').startswith('/static'):
+            filename = ''
+        else:
+            filename = img.getAttribute('src').replace('/uploaded_pic/', '')
+        # 飞img需要在移除元素前进行
+        if flyImgTime > 0:
+            target_x = -1
+            target_y = -1
+            if mode == 'i':
+                if 'square_item_parent' not in to_element.classList:
+                    rect = document[f'item_area_{to_element.attrs["data-side"]}'].getBoundingClientRect()
+                    target_x = rect.left + item_side_len[to_element.attrs["data-side"]]//2
+                else:
+                    rect = to_element.getBoundingClientRect()
+                    target_x = rect.left + item_side_len[to_element.attrs["data-side"]]//2
+            elif mode == 'l':
+                rect = to_element.getBoundingClientRect()
+                target_x = rect.left
+            else:
+                rect = to_element.getBoundingClientRect()
+                target_x = rect.left + item_side_len[to_element.attrs["data-side"]]
+            target_y = rect.top + item_side_len[to_element.attrs["data-side"]]//2
+            fly_img(img, target_x, target_y, fly_s=flyImgTime, zoom=config.PIC_DRAGING_ZOOM_RATIO)
+        # 所有的操作都需要移除
+        front_remove_item_auto(from_square_item_parent.attrs['data-side'], from_square_item_parent.attrs['data-id'])
+        if mode == 'i':
+            # 需要判定是不是往item_area放
+            if 'square_item_parent' not in to_element.classList:  # 往item_area放，肯定是一边是空的
+                front_add_item_after_auto(0, from_square_item_parent.attrs['data-id'], filename, 
+                                          img.alt, to_element.attrs['data-side'])
+            else:
+                # 需要判定是否有面包屑正在显示移入的路径
+                for s in ['l', 'r']:
+                    if breadcrumb[s]['breadcrumb'][-1][1] == int(to_element.attrs['data-id']):
+                        front_add_item_after_auto(0, from_square_item_parent.attrs['data-id'], filename, img.alt, s)
+        elif mode == 'l':
+            target_id = 0
+            for div in document[f'item_area_{to_element.attrs["data-side"]}']:
+                if int(div.attrs['data-id']) == int(to_element.attrs['data-id']):  # 查到对应的元素了，那么上一轮记录的target_id正是想要的
+                    break
+                else:
+                    target_id = int(div.attrs['data-id'])
+            front_add_item_after_auto(target_id, from_square_item_parent.attrs['data-id'], filename, 
+                                      img.alt, to_element.attrs['data-side'])
+        elif mode == 'r':
+            front_add_item_after_auto(to_element.attrs['data-id'], from_square_item_parent.attrs['data-id'], filename, 
+                                      img.alt, to_element.attrs['data-side'])
+    side = oa_origin_element.dataset.side
+    if oa_triggered_event == 'click':
+        # my_success('触发click', 1000)
+        # print(f'DBG：点击元素{oa_origin_element}')
+        if multi[side] == False and quick[side] == 'none':  # 普通点击，进入目录
+            breadcrumb_on_click(oa_origin_element.dataset.id, side)
+        elif multi[side] == True:  # 多选
+            # 增减多选型外发光
+            img = oa_origin_element.getElementsByTagName('img')[0]
+            if 'glow-for-multi' not in img.classList:
+                img.classList.add('glow-for-multi')
+            else:
+                img.classList.remove('glow-for-multi')
+        elif quick[side] != 'none':  # 快速移动
+            if side == 'l':
+                oppositeSide = 'r'
+            else:
+                oppositeSide = 'l'
+            if quick[side] == 'insert':  # 快速向对方插入
+                # 需要考虑目录是不是根，代码上是判断有没有子元素，有子元素直接插到子元素左侧
+                square_item_parents = document[f'item_area_{oppositeSide}'].children
+                if len(square_item_parents) != 0:  # 直接插到首个子元素左侧
+                    backend_move_item(oa_origin_element.attrs['data-id'], square_item_parents[0].attrs['data-id'], 'l').then(
+                        lambda nothing: backend_item_moved(oa_origin_element, square_item_parents[0], 'l', 0.1)
+                    ).catch(lambda msg: my_alert(msg))
+                else:  # 没有子元素，肯定不是根元素
+                    target_element = html.DIV(data_id=breadcrumb[oppositeSide]['breadcrumb'][-1][1], 
+                                            data_side=oppositeSide)  # 没有square_item_parent class，可以从此点判断
+                    backend_move_item(oa_origin_element.attrs['data-id'], breadcrumb[oppositeSide]['breadcrumb'][-1][1], 'i').then(
+                        lambda nothing: backend_item_moved(oa_origin_element, target_element, 'i', 0.1)
+                    ).catch(lambda msg: my_alert(msg))
+            elif quick[side] == 'absorb':  # 快速从对方吸收
+                square_item_parents = document[f'item_area_{oppositeSide}'].children
+                if len(square_item_parents) == 0:
+                    my_alert(i18n['oa_no_item_can_be_absorb'])  # ('无物品可被快速吸收')
+                else:
+                    absorbed_div = square_item_parents[0]
+                    backend_move_item(absorbed_div.attrs['data-id'], oa_origin_element.attrs['data-id'], 'i').then(
+                        lambda nothing: backend_item_moved(absorbed_div, oa_origin_element, 'i', 0.1)
+                    ).catch(lambda msg: my_alert(msg))
+            elif quick[side] == 'portal':  # 传送门
+                if quick['portal'] == None:  # 还没有目标，指定目标
+                    quick['portal'] = {
+                        'id': oa_origin_element.attrs['data-id'], 
+                        'img': oa_origin_element.getElementsByTagName('img')[0],
+                        'element': oa_origin_element
+                    }
+                    quick['portal']['img'].classList.add('glow-for-portal')
+                else:  # 已有目标，需要看是取消目标还是开始传送
+                    if oa_origin_element.attrs['data-id'] == quick['portal']['id']:  # 取消目标
+                        quick['portal']['img'].classList.remove('glow-for-portal')
+                        quick['portal'] = None
+                    else:  # 传送
+                        backend_move_item(oa_origin_element.attrs['data-id'], quick['portal']['id'], 'i').then(
+                            lambda nothing: backend_item_moved(oa_origin_element, quick['portal']['element'], 'i', 0.1)
+                        ).catch(lambda msg: my_alert(msg))
+            else:  # 我应该在if和elif里，不应该在else里
+                print(f'DBG：夭寿啦，点击的判定进入到了奇怪的地方！')
+        else:  # 我应该在if和elif里，不应该在else里
+            print(f'DBG：夭寿啦，点击的判定进入到了奇怪的地方！')
+    elif oa_triggered_event == 'drag':
+        # my_success('触发drag', 1000)
+        # 误触保护
+        if (int(time.time()*1000) - oa_on_down_time) < config.DRAG_THRESHOLE:  # 拖拽时间太短
+            my_alert(i18n['oa_drag_too_short_1'] + str(config.DRAG_THRESHOLE) + i18n['oa_drag_too_short_2'], 5000)
+            # f'拖拽时间过短，已触发误触保护。请至少拖拽{config.DRAG_THRESHOLE}ms(可在配置文件修改)'
+        else:
+            if multi[side] == False and quick[side] == 'none':  # 普通拖拽
+                if oa_last_target_element is not None:
+                    backend_move_item(oa_origin_element.attrs['data-id'], target_element.attrs['data-id'], target_func).then(
+                        lambda noting: backend_item_moved(oa_origin_element, target_element, target_func)
+                    ).catch(lambda msg: my_alert(msg))
+            elif multi[side] == True:  # 多选
+                selected_elements = []
+                for div in document[f'item_area_{oa_origin_element.attrs['data-side']}'].children:
+                    if 'glow-for-multi' in div.getElementsByTagName('img')[0].classList:
+                        selected_elements.append(div)
+                if target_func == 'l':  # 在左侧插入时，因为插入点不变，所以会导致反序，因此需要先反序
+                    selected_elements = selected_elements[::-1]
+                def recursion_move(lastElement=None):  # 递归移入
+                    nonlocal selected_elements
+                    if lastElement != None:  # 上一个后端有数据了
+                        fly_img(lastElement.getElementsByTagName('img')[0], x, y, fly_s=0.2, zoom=config.PIC_DRAGING_ZOOM_RATIO)
+                        backend_item_moved(lastElement, target_element, target_func)
+                    if len(selected_elements) == 0:
+                        return
+                    element = selected_elements.pop()
+                    backend_move_item(element.attrs['data-id'], target_element.attrs['data-id'], target_func).then(
+                        lambda noting: recursion_move(element)
+                    ).catch(lambda msg: my_alert(msg))
+                recursion_move()
+    elif oa_triggered_event == 'none':
+        my_success(i18n['oa_cancel'], 1000)  # '已取消操作'
+        if multi[side] == True:  # none是因为drag启动了才会none，因此只会在这里取消img的glow-for-multi-plus
+            for div in document[f'item_area_{oa_origin_element.attrs["data-side"]}'].children:
+                div.getElementsByTagName('img')[0].classList.remove('glow-for-multi-plus')
+        pass
+    # 恢复origin元素属性
+    origin_element_img = oa_origin_element.getElementsByTagName('img')[0]
+    origin_element_img.style.opacity = "1"  # 改变透明度
+
+
+def backend_move_item(from_id, to_id, mode):  # 后端元素移动，只管后端不管前端
+    def executor(resolve, reject):
+        def on_complete(req):
+            if req.status != 200:
+                my_alert(i18n['oa_backend_communication_failed'])  # ('后端通信失败！')
+                return
+            data = json.loads(req.text)
+            if data['status'] == 'success':
+                resolve(True)
+            else:
+                reject(data['message'])
+        ajax.post('/operating_area/move_item', data=json.dumps({'from_id': from_id, 'to_id': to_id, 'mode': mode}), 
+                  headers={"Content-Type": "application/json"}, oncomplete=on_complete)
+    return Promise(executor)
+    
+
+def generate_operating_area_item(id, filename, name, side, num):  # 生成item元素
+    '''
+    <div class="square_item_parent col p-0" id="item_sp1" draggable="false" data-id="0">
+        <img class="square_item_child white rounded" id="item_sc1" src="{{ url_for('uploaded_pic', filename='哈哈.png') }}" 
+        alt="这是一个示例图像" width="80" height="80">
+        <div class="caption-text rounded-bottom">这里是你的描述文字。</div>
+    </div>
+    '''
+    pic_side_len = item_side_len[side] * config.PIC_WIDTH_RATIO
+    comment_padding = item_side_len[side] * (0.5 - config.PIC_WIDTH_RATIO/2)
+    new_item = html.DIV(Class='square_item_parent col p-0', draggable='false', data_id=id, data_side=side, style=f'width:{item_side_len[side]}px; height:{item_side_len[side]}px;')
+    if filename == '':
+        img_src = '/static/img/box-seam.svg'
+        pic_side_len *= 0.8
+    else:
+        img_src = '/uploaded_pic/' + filename  # 这里是一个API接口，不是图片物理路径
+    img = html.IMG(
+        Class="square_item_child white rounded",  # 设置 class 属性
+        src=img_src,                           # 设置 src 属性
+        alt=name,                  # 设置 alt 属性
+        style=f'width:{pic_side_len}px; height:{pic_side_len}px;'
+    )
+    new_item <= img
+    # ODOT rounded可以优化
+    new_item <= html.DIV(num, Class='square_item_number rounded-1 ps-1 pe-1', style=f'left:{comment_padding}px; top:{comment_padding}px;')
+    new_item <= html.DIV(name ,Class='caption-text rounded-bottom', style=f'bottom:{comment_padding}px; left:{comment_padding}px; right:{comment_padding}px;')
+    new_item.bind('mousedown', oa_on_down)
+    new_item.bind('touchstart', oa_on_down)
+    return new_item
+
+
+def load_operating_area_items(side = ''):  # 加载items，side可传入l或r
+    # 被check_operating_area_items架空了
+    check_operating_area_items(side, check=False)
+    
+
+def check_operating_area_items(side = '', check=True):  # 检查前端item展示与数据库是否对得上
+    def add_items(data, area):  # 数据结构[{}]
+        area.html = ''
+        # print(f'DBG: 数据库数据{data}')
+        counter = 1
+        for i in data:
+            new_item = generate_operating_area_item(i['id'], i['img'], i['name'], area.id[-1], counter)
+            area <= new_item
+            counter += 1
+    def check_items(back_data, area):
+        # print(f'DBG：检查{side}侧元素中')
+        divs = area.children
+        ids = []
+        for div in divs:
+            ids.append(int(div.attrs['data-id']))
+        if len(ids) != len(back_data):
+            add_items(back_data, area)
+        else:
+            for i in range(len(ids)):
+                if ids[i] != back_data[i]['id']:
+                    add_items(back_data, area)
+                    print('DBG：前后端数据不一致，正在重新加载前端内容')
+                    return
+    sides = ['l', 'r']
+    if side in sides:
+        sides = [side]
+
+    for side in sides:
+        area = document[f'item_area_{side}']
+        get_children(breadcrumb[side]['breadcrumb'][-1][1]).then(
+            lambda data: check_items(data, area) if check else add_items(data, area)
+        ).catch(
+            lambda msg: my_alert(msg)
+        )
+
+
+def get_item_info(id):  # 获取给定id的全部item内容
+    universal_bry.get_item_info(id)
+
+
+def get_children(id):  # 获取给定id的全部子元素
+    print(f'DBG：尝试get_children({id})')
+    def executor(resolve, reject):
+        def on_complete(req):
+            if req.status != 200:
+                my_alert(i18n['oa_get_child_item_failed'])  # ('获取元素子元素失败！')
+                return
+            data = json.loads(req.text)
+            # print(f'DBG：get_children({id})获取到的内容{data}')
+            if data['status'] == 'success':
+                data = data['data']
+                resolve(data)
+            else:
+                reject(data['message'])
+        ajax.get(f'/operating_area/get_children', data={'id': id}, oncomplete=on_complete)
+    return Promise(executor)
+
+
+def front_reload_number(side, start_counter=1):  # 前端重新加载序号
+    divs = document[f'item_area_{side}'].children
+    # print(f'DBG：divs为{divs}')
+    counter = start_counter
+    for i in range(start_counter-1, len(divs)):
+        squqre_item_parent = divs[i]
+        # print(f'DBG：squqre_item_parent为{squqre_item_parent}')
+        squqre_item_parent.getElementsByTagName('div')[0].text = counter
+        counter += 1
+
+
+def front_add_item_after_auto(target_id, id, filename, name, side):  # 前端指定位置单蹦添加item，自动擦屁股确保对面也添加
+    if breadcrumb['l']['breadcrumb'][-1][1] == breadcrumb['r']['breadcrumb'][-1][1]:  # 路径结尾一样，所以两边都要添加新元素
+        sides = ['l', 'r']
+    else:
+        sides = [side]
+    for side in sides:
+        front_add_item_after(target_id, id, filename, name, side)
+        check_operating_area_items(side)
+
+
+def front_add_item_after(target_id, id, filename, name, side):  # 前端指定位置单蹦添加item
+    # print(f'DBG：前端指定位置添加元素，target_id {target_id}, id {id}, filename {filename}, name {name}, side {side}')
+    area = document[f'item_area_{side}']
+    divs = area.children
+    # 先根据target_id获取到counter（显示位置）
+    if int(target_id) == 0:
+        new_item_counter = 1
+    else:
+        for squqre_item_parent in divs:
+            if int(squqre_item_parent.attrs['data-id']) == int(target_id):
+                new_item_counter = int(squqre_item_parent.getElementsByTagName('div')[0].text)+1
+    # 生成元素
+    new_item = generate_operating_area_item(id, filename, name, side, new_item_counter)
+    new_item.classList.add('fade-in')
+    def remove_fade_in(dom):
+        dom.classList.remove('fade-in')
+    timer.set_timeout(remove_fade_in, 300, new_item)
+    # 插入元素
+    if new_item_counter > len(divs):
+        area <= new_item
+    else:
+        area.insertBefore(new_item, divs[new_item_counter-1])
+        front_reload_number(side, new_item_counter+1)
+
+
+def front_remove_item_auto(side, id):  # 前端移除item，自动擦屁股确保两边都删、检查路径是否被删之类的
+    if breadcrumb['l']['breadcrumb'][-1][1] == breadcrumb['r']['breadcrumb'][-1][1]:  # 路径结尾一样，所以两边都要删除
+        sides = ['l', 'r']
+    else:
+        sides = [side]
+    for side in sides:
+        front_remove_item(side, id)
+        check_operating_area_items(side)
+    # 检查是否删除了add_change_item_side对面的面包屑路径上的物品
+    target_side = 'l' if add_change_item_side == 'r' else 'r'
+    now_switch = False  # 如果在面包屑上找到了删除的元素，则now_switch置一，下一循环找到其父节点后将执行面包屑切换
+    for breadcrumb_item in breadcrumb[target_side]['breadcrumb'][::-1]:  # 从右往左查
+        # print(f'DBG：删除item后检查面包屑元素{breadcrumb_item}')
+        if now_switch:
+            breadcrumb_on_click(breadcrumb_item[1], target_side)
+            break
+        if breadcrumb_item[1] == int(id):
+            now_switch = True
+
+
+def front_remove_item(side, id):  # 前端移除item
+    area = document[f'item_area_{side}']
+    divs = area.children
+    for squqre_item_parent in divs:
+        if squqre_item_parent.attrs['data-id'] == id:
+            counter = int(squqre_item_parent.getElementsByTagName('div')[0].text)
+            '''  # 加上动效确实不好整，先不要动效了
+            def executor(resolve, reject):
+                def remove_item(dom, side, counter):
+                    dom.remove()
+                    front_reload_number(side, counter)
+                    resolve(True)
+                squqre_item_parent.classList.add('fade-out')
+                timer.set_timeout(remove_item, 200, squqre_item_parent, side, counter)
+            return Promise(executor)
+            '''
+            squqre_item_parent.remove()
+            front_reload_number(side, counter)
+    
+
+############
+def item_area_set_max_height(event=None, side=''):  # 重设item_area高度
+    div_padding = int(window.getComputedStyle(document['page_operating_area']).paddingBottom[:-2])  # paddingBottom读到的是字符串YYpx
+    window_height = window.innerHeight
+    if hasattr(window, 'visualViewport'):
+        window_height = min(window.visualViewport.height, window_height)
+        # print(f'DGB: innerHeight:{window.innerHeight} visualViewport.height:{window.visualViewport.height}')
+    sides = ['l', 'r']
+    if side in sides:
+        sides = [side]
+    for side in sides:
+        target = document[f'item_area_{side}']
+        rect = target.getBoundingClientRect()
+        target.style.maxHeight = f'{window_height - rect.top - div_padding - 1}px'  # 1px是因为有个border
+        target.style.height = f'{window_height - rect.top - div_padding - 1}px'
+        draw_scroll_safe_zone(side)  # 万一是页面大小变了呢
+
+
+def operating_area_page_on_visible(mutations, observer):  # 直接加载页面时此函数失效
+    for mutation in mutations:
+        if mutation.type == 'attributes' and mutation.attributeName == 'style':
+            div = mutation.target
+            if window.getComputedStyle(div).display != 'none': 
+                operating_area_page_on_vivible_then()
+            else:
+                # print("DBG: 操作区不可见")
+                # 如果需要停止观察，可以在这里调用 observer.disconnect()
+                pass
+
+
+def operating_area_page_on_vivible_then():  # 页面变可见时要干的事
+    print("DBG: 操作区变为可见")
+    load_item_side_len()  # 加载元素大小
+    # item_area_set_max_height()  # 设置元素区大小，会在绘制面包屑后执行
+    load_breadcrumb()  # 加载面包屑，函数会自动调用加载元素、切换快速移动图标可用性
+    window.onresize = item_area_set_max_height
+
+
+def init_operating_area_page():
+    # 多选按钮绑定
+    document['multi_select_l'].bind('click', lambda ev: multi_select_on_click(ev))
+    document['multi_select_r'].bind('click', lambda ev: multi_select_on_click(ev))
+    # 元素快速移动绑定
+    for side in ['l', 'r']:
+        for to in ['none', 'insert', 'absorb', 'portal']:
+            document[f'quick_{to}_{side}'].bind('click', lambda ev, s=side, t=to: quick_move_switch(s, t))
+    # 下拉菜单收起事件绑定
+    document['item_side_len_dropdown_l'].bind('hide.bs.dropdown', on_item_side_len_dropdown_hide)
+    document['item_side_len_dropdown_r'].bind('hide.bs.dropdown', on_item_side_len_dropdown_hide)
+    # 目录快捷按钮绑定
+    for side in ['l', 'r']:
+        for direction in ['back', 'forward', 'parent']:
+            document[f'{direction}_btn_{side}'].bind('click', lambda ev, s=side, d=direction: breadcrumb_quick_switch(s, d))
+    # 面包屑快速跳转绑定
+    for side in ['l', 'r']:
+        document[f'manual_breadcrumb_btn_{side}'].bind('click', lambda ev, s=side: open_manual_input_breadcrumb(s))
+    document['manual_input_breadcrumb_jump'].bind('click', jump2manual_input_breadcrumb)
+    # 新增元素绑定
+    document['open_add_btn_l'].bind('click', lambda ev, side='l': open_add_new_item_form(side))
+    document['open_add_btn_r'].bind('click', lambda ev, side='r': open_add_new_item_form(side))
+    init_add_new_item()
+    document['close_add_change_item_form'].bind('click', init_add_new_item)
+    document['new_item_name_auto_rename'].bind('click', auto_rename_onclick)
+    document['new_item_class'].bind('change', get_new_item_properties)
+    document['cropped_img_area'].bind('click', view_large_image)
+    document['open_img_crop_modal'].bind('click', upload_img)
+    document['reupload_img_btn'].bind('click', upload_img)
+    document['img_input'].bind('change', lambda ev: handle_img_change(ev))
+    document['use_img_size_settings_lable'].text = i18n['oa_compress_img_tip_1'] + str(config.PIC_WIDTH_MAX) + i18n['oa_compress_img_tip_2'] + str(config.PIC_QUALITY) + ')'
+    # f'压缩图片(最大边长{config.PIC_WIDTH_MAX},质量{config.PIC_QUALITY})'
+    document['crop_img_btn'].bind('click', lambda ev: apply_cropped_img(ev))
+    document['btn_item_delete'].bind('click', del_item)
+
+    on_visible_target = document['page_operating_area']
+    observer = window.MutationObserver.new(operating_area_page_on_visible)
+    observer.observe(on_visible_target, {'attributes': True, 'attributeFilter': ['style']})
+
+    if window.getComputedStyle(on_visible_target).display != 'none':
+        operating_area_page_on_vivible_then()
+init_operating_area_page()

@@ -1,0 +1,568 @@
+from browser import document, window, html, ajax, timer # type: ignore
+from universal import my_alert, my_success, disable_selection, enable_selection, config, Promise
+from  i18n import i18n
+import universal_bry
+import json
+import copy
+
+db_data = {}  # 来自数据库的记录缓存  id:数据  id为str
+local_data = {}  # 本地筛选后的记录  id:数据  id为str
+
+
+############
+# 筛选设置
+local_loaded_class = ''  # 前端筛选设置所加载的class
+
+
+def vi_load_classes():  # 加载分类
+    old_class = document['filter_class'].value
+    target = document['filter_class']
+    target.html = ''
+    def on_complete(req):
+        if req.status != 200:
+            my_alert(i18n['oa_load_class_error'])  # ('加载分类数据失败！')
+            return
+        data = json.loads(req.text)
+        data = data['classes']
+        target <= html.OPTION(i18n['filter_null'], value="")  # "空"
+        for i in data:
+            target <= window.Option.new(f"{i}", f"{i}")
+        if old_class in data:
+            target.value = old_class
+        else:
+            target.value = ''
+    ajax.get('/manage_attributes/get_classes', oncomplete=on_complete)
+
+
+def vi_load_items_from_db(ev=None):  # 从数据库查询数据
+    document['filter_db_select'].disabled = True
+    target_name = document['filter_name'].value
+    target_class = document['filter_class'].value
+    target_is_virtual = document['filter_is_virtual'].value
+    target_expiration_time = document['filter_expiration_time'].value
+    def on_complete(req):
+        global db_data
+        document['filter_db_select'].disabled = False
+        if req.status != 200:
+            my_alert(i18n['vi_load_db_failed'])  # ('从数据库加载数据失败！')
+            return
+        data = json.loads(req.text)
+        # print(f'DBG：从数据库加载到的数据{data}')
+        if data['status'] == 'success':
+            db_data = data['db_data']
+            document['db_selected_num_info'].text = len(db_data)
+            vi_load_properties()
+        else:
+            my_alert(data['message'])
+    ajax.get('/view_items/get_db_data', 
+             data={'target_name': target_name, 
+                   'target_class': target_class,
+                   'target_is_virtual': target_is_virtual,
+                   'target_expiration_time': target_expiration_time}, 
+             oncomplete=on_complete)
+
+
+def vi_load_properties(force=False):  # 渲染前端筛选设置
+    global local_loaded_class
+    def add_btn():  # 添加筛选按钮
+        btn = html.BUTTON(i18n['filter_local_filter'], Class="btn btn-outline-success pt-1 pb-1 ms-1", type="button", id="filter_local_filter")  # "筛选"
+        btn.bind('click', vi_use_local_properties_filter)
+        add_dom(btn)
+    def add_dom(dom, need_layers=2):  # 加载一项dom
+        if need_layers == 2:
+            div1 = html.DIV(Class="d-flex")
+            div2 = html.DIV(Class="col-auto ps-0 pe-4")
+            div1 <= dom
+            div2 <= div1
+            document['filter_area_local_area'] <= div2
+        else:  # 目前只有layer为1的情况
+            div2 = html.DIV(Class="col-auto ps-0 pe-4")
+            div2 <= dom
+            document['filter_area_local_area'] <= div2
+    if document['filter_class'].value != local_loaded_class or force:  # 当前选择的分类与过去加载的分类不同
+        # 重新拉取properties，然后刷新卡片
+        if not force:  # 目前force为False，则说明是从数据库筛选后触发的，需要加载class；如果为True，则说明是因为properties前后端不一致导致刷新，不加载class
+            local_loaded_class = document['filter_class'].value
+        target_class = local_loaded_class
+        if target_class == '':  # 没有选择分类
+            document['filter_area_local_area'].html = ''
+            add_btn()
+            vi_use_local_properties_filter()
+        else:  # 选择分类了
+            def on_complete(req):
+                if req.status != 200:
+                    my_alert(i18n['vi_load_properties_failed'])  # ('从数据库加载属性失败！')
+                    return
+                data = json.loads(req.text)
+                if data['status'] == 'success':
+                    properties = data['data']
+                    counter = 1  # 对应rank值从1开始
+                    document['filter_area_local_area'].html = ''
+                    for i in properties:  # 顺序为property,form,range,comment
+                        new_div = html.DIV(Class="d-flex")
+                        new_div <= html.LABEL(f'{i[0]}', **{'for': f"vi_property_{counter}", 'class': "col col-form-label p-1"})
+                        if i[1] == 'list':  # 多选
+                            new_dropdown  = html.DIV(Class="dropdown col-auto p-0")
+                            new_dropdown <= html.BUTTON(i18n['filter_null'],  # "空"
+                                                        Class="btn border p-2 dropdown-toggle pt-1 pb-1",
+                                                        type="button",
+                                                        data_bs_toggle="dropdown",
+                                                        data_bs_auto_close="outside",
+                                                        id=f"vi_property_{counter}",
+                                                        data_property=f"{i[0]}",
+                                                        data_form=f"{i[1]}",
+                                                        data_range=i[2],
+                                                        data_checked_id="")
+                            new_ul = html.UL(Class="dropdown-menu")
+                            if i[2] != '':  # 得保证有东西
+                                options = i[2].split(',')
+                                options.append(i18n['vi_blank'])  # ('(空白)')
+                                li_counter = 0
+                                for opt in options:
+                                    new_li = html.LI(Class="form-check ms-2")
+                                    new_check = html.INPUT(Class="form-check-input", 
+                                                        type="checkbox", 
+                                                        id=f"vi_property_{counter}_{li_counter}",
+                                                        data_li_counter=li_counter,
+                                                        data_dropdown_id=f"vi_property_{counter}",
+                                                        data_property=opt,
+                                                        data_is_null="F")
+                                    if opt == options[-1]:  # 是真的“空白”
+                                        new_check.attrs['data-is-null'] = 'T'
+                                    new_check.bind('click', property_list_on_click)
+                                    new_li <= new_check
+                                    new_li <= html.LABEL(opt, Class="form-check-label pe-2", **{'for': f"vi_property_{counter}_{li_counter}"})
+                                    new_ul <= new_li
+                                    li_counter += 1
+                            new_dropdown <= new_ul
+                            new_div <= new_dropdown
+                        elif i[1] == 'num':
+                            new_input = html.INPUT(type="text", 
+                                                   Class="form-control p-1", 
+                                                   id=f"vi_property_{counter}", 
+                                                   data_property=f"{i[0]}", 
+                                                   data_form=f"{i[1]}",
+                                                   data_range=i[2],
+                                                   placeholder=f"{i18n["filter_null"]}({i[2]})")
+                            protection_div = html.DIV(Class="col-auto p-0")  # 不加这一层div会导致label宽度过窄
+                            protection_div <= new_input
+                            new_div <= protection_div
+                        add_dom(new_div, need_layers=1)
+                        counter += 1
+                    add_btn()
+                    vi_use_local_properties_filter()
+                else:
+                    my_alert(data['message'])
+            ajax.get('/operating_area/get_properties', data={'target_class': target_class}, oncomplete=on_complete)
+    else:  # 分类相同，拿填好的直接用
+        vi_use_local_properties_filter()
+
+
+def property_list_on_click(ev):  # list类型的属性，点击多选框后更新btn展示的内容
+    target = ev.target
+    dropdown_id = target.attrs['data-dropdown-id']
+    checked_id = document[dropdown_id].attrs['data-checked-id']
+    if checked_id == '':
+        checked_id = []
+    else:
+        checked_id = [int(i) for i in checked_id.split(',')]
+    if target.checked == True:
+        checked_id.append(int(target.attrs['data-li-counter']))
+    else:
+        checked_id.remove(int(target.attrs['data-li-counter']))
+    checked_id.sort()
+    document[dropdown_id].attrs['data-checked-id'] = ','.join([str(i) for i in checked_id])
+    counter = document[dropdown_id].id.split('_')[-1]
+    show = ''
+    for i in checked_id:
+        show += document[f'vi_property_{counter}_{i}'].attrs['data-property'] + ','
+    if len(show) != 0:
+        show = show[:-1]  # 去除最后的逗号
+    else: 
+        show = i18n['filter_null']  # '空'
+    document[dropdown_id].text = show
+
+
+def vi_use_local_properties_filter(ev=None):  # 应用设置的属性过滤器以获取最终应展示的卡片数据
+    global local_data
+    properties_num = len(document['filter_area_local_area'].children) - 1
+    if properties_num == 0:  # 没有过滤器，直接展示
+        local_data = copy.deepcopy(db_data)
+        document['local_selected_num_info'].text = document['db_selected_num_info'].text
+    else:
+        buf1 = copy.deepcopy(db_data)
+        buf2 = {}
+        # 应用过滤器
+        for i in range(1, properties_num+1):
+            buf2 = {}
+            div = document[f'vi_property_{i}']
+            if div.attrs['data-form'] == 'list':
+                if div.attrs['data-checked-id'] != '':  # 有筛选
+                    property_name = div.attrs['data-property']
+                    checked = div.text.split(',')
+                    for item_id in buf1.keys():
+                        if property_name in buf1[item_id]['properties'].keys():  # 有对应字段，需要执行过滤
+                            if buf1[item_id]['properties'][property_name] == '':  # 需要判断是否勾选空白
+                                last_checked_num = div.attrs['data-checked-id'].split(',')[-1]
+                                if document[f'vi_property_{i}_{last_checked_num}'].attrs['data-is-null'] == 'T':  # 真空白
+                                    buf2[item_id] = buf1[item_id]
+                            else:
+                                if buf1[item_id]['properties'][property_name] in checked:  # 属性值在勾选范围内
+                                    buf2[item_id] = buf1[item_id]
+                else:  # 无筛选，直接过
+                    continue
+            elif div.attrs['data-form'] == 'num':
+                div.classList.remove('is-invalid')  # 删除可能存在的警示标
+                if div.value == '':  # 没填内容，直接过
+                    continue
+                else:
+                    # 先整理出筛选范围
+                    have_null = False
+                    checked_ranges_origin = div.value.replace('，', ',').split(',')
+                    checked_ranges = []
+                    for part in checked_ranges_origin:
+                        if part in i18n['vi_num_property_input_blank'].split(','):  #  ['空', '空白', '(空白)', '（空白）']:
+                            have_null = True
+                        else:
+                            def show_alert():
+                                my_alert(f'【{div.attrs["data-property"]}】{i18n["vi_num_property_input_invalid"]}')  # "属性填写内容无法被识别，请参考帮助页面相关教程进行检查更改"
+                                div.classList.add('is-invalid')
+                            if '-' not in part:  # 尝试识别单崩数字
+                                try:
+                                    min_num = float(part)
+                                except (ValueError, TypeError):
+                                    show_alert()
+                                    return
+                                else:
+                                    checked_ranges.append((min_num, min_num))
+                            else:
+                                min_max = part.split('-')
+                                if len(min_max) != 2:
+                                    show_alert()
+                                    return
+                                try:
+                                    min_num = float(min_max[0])
+                                    max_num = float(min_max[1])
+                                    if min_num > max_num:
+                                        min_num, max_num = max_num, min_num
+                                except ValueError:
+                                    show_alert()
+                                    return
+                                else:
+                                    checked_ranges.append((min_num,max_num))
+                    # 有范围了，进行筛选
+                    property_name = div.attrs['data-property']
+                    for item_id in buf1.keys():
+                        if property_name in buf1[item_id]['properties'].keys():  # 来自数据库的数据有对应字段，则应查看是否在筛选范围内
+                            # 判断是否为空
+                            if buf1[item_id]['properties'][property_name] == '':
+                                if have_null:
+                                    buf2[item_id] = buf1[item_id]
+                                continue
+                            # 判断是否在范围
+                            number = float(buf1[item_id]['properties'][property_name])
+                            for scope in checked_ranges:
+                                if scope[0] <= number <= scope[1]:
+                                    buf2[item_id] = buf1[item_id]
+                                    break
+            buf1 = copy.deepcopy(buf2)
+        local_data = buf1
+    # 属性也过滤完了，需要渲染卡片了
+    document['local_selected_num_info'].text = len(local_data)
+    update_page_options(force=True)  # 属性过滤改了，强制刷新页面数（主要为了归1）
+    vi_render_items()
+
+
+def vi_check_properties():  # 从其他页面进来后，检查前端加载的properties和后端是否还相同
+    if local_loaded_class != '':  # 选择了属性才检查
+        # 获取当前属性列表
+        local_properties = {}
+        for i in range(1, len(document['filter_area_local_area'].children)):
+            local_properties[document[f'vi_property_{i}'].attrs['data-property']] = document[f'vi_property_{i}'].attrs['data-range']
+        def on_complete(req):
+            if req.status != 200:
+                my_alert(i18n['vi_load_properties_failed'])  # ('从数据库加载属性失败！')
+                return
+            data = json.loads(req.text)
+            if data['status'] == 'success':
+                properties = data['data']
+                needReloadProperties = False
+                if len(local_properties) != len(properties):  # 数量不一致，需要重新加载。不必担心数量为0时是不是class被删了，已加载卡片的一致性交给用户保证
+                    needReloadProperties = True
+                else:
+                    for p in properties:  # 检查内容是否一致，顺序property,form,range,comment
+                        if local_properties[p[0]] != p[2]:
+                            needReloadProperties = True
+                            break
+                if needReloadProperties:
+                    print(f'DBG：properties一致性校验不通过，正在重新加载')
+                    vi_load_properties(force=True)
+            else:
+                my_alert(data['message'])
+        ajax.get('/operating_area/get_properties', data={'target_class': local_loaded_class}, oncomplete=on_complete)
+
+
+############
+# 展示设置
+vi_filter_show_settings = {  # 与存储到本地的展示设置相同，可能与前端填写的不同
+    'filter_show_num': 0,
+    'filter_show_width': 0,
+    'filter_show_pic_width': 0,
+    'filter_show_name': False,
+    'filter_show_parent': False,
+    'filter_show_class': False,
+    'filter_show_property': False,
+    'filter_show_comment': False,
+    'filter_show_expiration_time': False
+}
+
+
+def load_show_settings():  # 从本地加载展示设置
+    global vi_filter_show_settings
+    test = window.localStorage.getItem('filter_show_pic_width')
+    if test:  # 有存储记录，加载存储记录
+        for i in ['filter_show_num', 'filter_show_width', 'filter_show_pic_width']:
+            document[i].value = int(window.localStorage.getItem(i))
+            vi_filter_show_settings[i] = int(window.localStorage.getItem(i))
+        for i in ['filter_show_name', 'filter_show_parent', 'filter_show_class', 
+                  'filter_show_property', 'filter_show_comment', 'filter_show_expiration_time']:
+            document[i].checked = (window.localStorage.getItem(i) == 'True')
+            vi_filter_show_settings[i] = (window.localStorage.getItem(i) == 'True')
+    else:  # 没有存储记录，存储一下初始值
+        save_show_settings()
+
+
+def save_show_settings():  # 保存展示设置到本地
+    global vi_filter_show_settings
+    for i in ['filter_show_num', 'filter_show_width', 'filter_show_pic_width']:
+        if vi_filter_show_settings[i] != int(document[i].value):
+            window.localStorage.setItem(i, document[i].value)
+            vi_filter_show_settings[i] = int(document[i].value)
+    for i in ['filter_show_name', 'filter_show_parent', 'filter_show_class', 
+              'filter_show_property', 'filter_show_comment', 'filter_show_expiration_time']:
+        if vi_filter_show_settings[i] != document[i].checked:
+            window.localStorage.setItem(i, str(document[i].checked))
+            vi_filter_show_settings[i] = document[i].checked
+
+
+############
+# 展示区
+vi_need_show_page = 1  # 需要展示的页码
+
+
+def get_now_page_num():  # 获取当前的页码
+    for op in document['page_jump_num'].children:
+        if op.selected == True:
+            return int(op.value)
+
+
+def update_page_options(force=False):  # 更新页码
+    global vi_need_show_page
+    page_capacity = vi_filter_show_settings['filter_show_num']
+    max_page_num = (len(local_data) + page_capacity -1)//page_capacity  # 向上取整除法
+    vi_need_show_page_buf = vi_need_show_page
+    vi_need_show_page = 1
+    if len(document['page_jump_num'].children) != max_page_num or force:  # 页数不一样，或者强制刷新
+        if vi_need_show_page_buf > max_page_num:  # 防止溢出
+            vi_need_show_page_buf = max_page_num
+        document['page_jump_num'].html = ''
+        for i in range(1, max_page_num+1):
+            document['page_jump_num'] <= html.OPTION(f'{i}/{max_page_num}', value=f"{i}", selected=(vi_need_show_page_buf==i))
+        return True
+    return False
+
+
+def switch_page_btn_on_click(mode=''):  # mode有ll, l, r, rr
+    divs = document['page_jump_num'].children
+    if len(divs) == 0:
+        return
+    l_index = None
+    r_index = None
+    now_index = None
+    for i in range(len(divs)):
+        if divs[i].selected == True:
+            now_index = i
+            break
+    l_index = now_index-1 if now_index>0 else 0
+    r_index = now_index+1 if now_index<(len(divs)-1) else (len(divs)-1)
+    if mode == 'll':
+        target_index = 0
+    elif mode == 'l':
+        target_index = l_index
+    elif mode == 'r':
+        target_index = r_index
+    else:
+        target_index = len(divs)-1
+    if target_index != now_index:
+        divs[now_index].selected = False
+        divs[target_index].selected = True
+        vi_render_items()  # 因为说bry的操作不会触发change监听
+
+
+def vi_render_items(ev=None):  # 渲染卡片
+    print(f'DBG：渲染卡片')
+    save_show_settings()
+    update_page_options()
+    # 获取正在展示的页数
+    now_page = 0
+    for i in document['page_jump_num'].children:
+        if i.selected == True:
+            now_page = int(i.value)
+    if now_page == 0:  # 说明没有页面，需要清除可能的展示内容
+        document['vi_item_area'].html = ''
+        return
+    start_pos = (now_page-1)*vi_filter_show_settings['filter_show_num']
+    end_pos = min(now_page*vi_filter_show_settings['filter_show_num']-1, len(local_data)-1)
+    target_area = document['vi_item_area']
+    target_area.style.gridTemplateColumns = f'repeat(auto-fill, minmax({vi_filter_show_settings["filter_show_width"]}px, {vi_filter_show_settings["filter_show_width"]}px))'
+    target_area.html = ''
+    # print(f'DBG：展示范围下标{start_pos}-{end_pos}')
+    local_data_keys = list(local_data.keys())
+    for i in range(start_pos, end_pos+1):
+        # 渲染卡片
+        info = local_data[local_data_keys[i]]
+        # card_div = html.DIV(Class="card m-1", style=f"width: {vi_filter_show_settings["filter_show_width"]}px; align-self: flex-start;")
+        card_div = html.DIV(Class="card m-0", style=f"width: {vi_filter_show_settings["filter_show_width"]}px;", data_id=local_data_keys[i])
+        if info['img'] == '':
+            img_src = '/static/img/box-seam.svg'
+        else:
+            img_src = '/uploaded_pic/' + info['img']  # 这里是一个API接口，不是图片物理路径
+        card_img = html.IMG(
+            Class="square_item_child white rounded",  # 设置 class 属性
+            src=img_src,                           # 设置 src 属性
+            alt=info['name'],                  # 设置 alt 属性
+            style=f'width:{vi_filter_show_settings["filter_show_pic_width"]}px; height:{vi_filter_show_settings["filter_show_pic_width"]}px;' + 
+                    'display: inline-block; margin: auto; pointer-events: auto;',
+            data_id=local_data_keys[i]
+        )
+        card_img.bind('click', lambda ev, target_id=local_data_keys[i]: show_item_info(target_id))
+        card_div <= card_img
+        card_body = html.DIV(Class="card-body p-1")
+        if vi_filter_show_settings['filter_show_name']:
+            card_body <= html.DIV(info['name'], Class="fw-bold")
+        if vi_filter_show_settings['filter_show_parent']:
+            card_body <= html.DIV(f'{i18n["vi_location"]}:{info["parent_name"]}')  # "位置"
+        if vi_filter_show_settings['filter_show_class']:
+            card_body <= html.DIV(f'{i18n['vi_class']}:{info["class"]}')  # "分类"
+        if vi_filter_show_settings['filter_show_property']:
+            if document['filter_class'].value != '':  # 筛选了分类，则属性按照前端的顺序展示
+                for property_num in range(1, len(document['filter_area_local_area'].children)):
+                    property_div = document[f'vi_property_{property_num}']
+                    property_name = property_div.attrs['data-property']
+                    if property_name in info['properties'].keys():
+                        property_val = info['properties'][property_name]
+                    else:
+                        property_val = ''
+                    card_body <= html.DIV(f'{property_name}:{property_val}')
+            else:  # 属性按自己存的展示
+                # print(f'DBG：properties为{info["properties"]}')
+                for property_name in info['properties'].keys():
+                    card_body <= html.DIV(f'{property_name}:{info["properties"][property_name]}')
+        if vi_filter_show_settings['filter_show_comment']:
+            card_body <= html.DIV(f'{i18n["vi_comment"]}:{info["comment"]}', Class="overflow-y-auto border", style="max-height: 60px;")  # "备注"
+        if vi_filter_show_settings['filter_show_expiration_time']:
+            card_body <= html.DIV(f'{i18n["vi_expiration"]}:{info["expiration_time"]}')  # "过期"
+        card_div <= card_body
+        target_area <= card_div
+
+
+def show_item_info(target_id):  # 加载元素详情
+    # 绑定模态框按钮
+    document['btn_item_delete'].unbind('click')
+    document['btn_item_add_change'].unbind('click')
+    document['btn_item_delete'].bind('click', del_item)
+    document['btn_item_add_change'].bind('click', lambda ev: change_item())
+    universal_bry.show_item_info(target_id)
+
+
+def change_item(ev=None):  # 更改元素
+    def on_resolve(ret):
+        global vi_need_show_page
+        # 重新拉取
+        if ret['mode'] == 'vi_change':
+            vi_need_show_page = get_now_page_num()  # 确保页数不动
+            document['filter_db_select'].click()
+    universal_bry.add_change_item(local_data[document['add_item_form_title'].attrs['data-id']]['parent']).then(
+        lambda data: on_resolve(data)
+    )
+
+
+def del_item(ev=None):  # 删除元素
+    def on_complete(req):
+        global vi_need_show_page, db_data, local_data
+        if req.status != 200:
+            my_alert(req.status)
+        else:
+            data = json.loads(req.text)
+            if data['status'] == 'success':
+                my_success(i18n['oa_del_success_1'] + str(data["del_count"]) + i18n['oa_del_success_2'])  # (f'删除成功，共删除{data["del_count"]}个元素')
+                del_id = str(document['add_item_form_title'].attrs['data-id'])
+                document['close_add_change_item_form'].click()  # 关闭窗口
+                # 移除卡片
+                del db_data[del_id]
+                del local_data[del_id]
+                vi_need_show_page = get_now_page_num()  # 确保页数不动
+                vi_render_items()
+            else:
+                my_alert(data['message'])
+    ajax.post('/operating_area/del_item', data=json.dumps({'id': document['add_item_form_title'].attrs['data-id']}), 
+              headers={"Content-Type": "application/json"}, oncomplete=on_complete)
+
+
+############
+def view_items_page_set_max_height(event=None):  # 重设view_items页面高度
+    div_padding = int(window.getComputedStyle(document['page_view_items']).paddingBottom[:-2])  # paddingBottom读到的是字符串YYpx
+    window_height = window.innerHeight
+    if hasattr(window, 'visualViewport'):
+        window_height = min(window.visualViewport.height, window_height)
+        # print(f'DGB: innerHeight:{window.innerHeight} visualViewport.height:{window.visualViewport.height}')
+    target = document['view_items_base']
+    rect = target.getBoundingClientRect()
+    target.style.maxHeight = f'{window_height - rect.top - div_padding}px'
+    target.style.height = f'{window_height - rect.top - div_padding}px'
+    target = document['vi_item_area']
+    rect = target.getBoundingClientRect()
+    target.style.maxHeight = f'{window_height - rect.top - div_padding - 1}px'
+    target.style.height = f'{window_height - rect.top - div_padding - 1}px'
+
+
+def view_items_page_on_visible(mutations, observer):  # 直接加载页面时此函数失效
+    for mutation in mutations:
+        if mutation.type == 'attributes' and mutation.attributeName == 'style':
+            div = mutation.target
+            if window.getComputedStyle(div).display != 'none': 
+                view_items_page_on_vivible_then()
+            else:
+                # print("DBG: 物品浏览区不可见")
+                # 如果需要停止观察，可以在这里调用 observer.disconnect()
+                pass
+
+
+def view_items_page_on_vivible_then():  # 页面变可见时要干的事
+    print("DBG: 物品浏览区变为可见")
+    view_items_page_set_max_height()
+    window.onresize = view_items_page_set_max_height
+    vi_load_classes()  # 加载classes列表，避免用户去设置分类后回来了
+    vi_check_properties()  # 检查properties是否有变化
+
+
+def init_view_items_page():
+    load_show_settings()  # 读取展示设置
+    document['filter_db_select'].bind('click', vi_load_items_from_db)  # 数据库筛选设置
+    document['filter_local_filter'].bind('click', vi_use_local_properties_filter)  # 前端筛选设置
+    document['filter_rerender'].bind('click', vi_render_items)  # 展示设置
+    for i in ['filter_area_db', 'filter_area_local', 'filter_area_show']:
+        document[i].addEventListener('shown.bs.collapse', view_items_page_set_max_height)
+        document[i].addEventListener('hidden.bs.collapse', view_items_page_set_max_height)
+    document['page_jump_num'].bind('change', vi_render_items)  # 页码变更，说是只会响应用户选择，不会响应bry的操作变更
+    document['jump_first_page'].bind('click', lambda ev: switch_page_btn_on_click(mode='ll'))
+    document['jump_left_page'].bind('click', lambda ev: switch_page_btn_on_click(mode='l'))
+    document['jump_right_page'].bind('click', lambda ev: switch_page_btn_on_click(mode='r'))
+    document['jump_last_page'].bind('click', lambda ev: switch_page_btn_on_click(mode='rr'))
+
+    on_visible_target = document['page_view_items']
+    observer = window.MutationObserver.new(view_items_page_on_visible)
+    observer.observe(on_visible_target, {'attributes': True, 'attributeFilter': ['style']})
+    if window.getComputedStyle(on_visible_target).display != 'none':
+        view_items_page_on_vivible_then()
+init_view_items_page()

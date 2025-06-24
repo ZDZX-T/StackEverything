@@ -1,0 +1,109 @@
+<div style="display: none;" class="container-fluid p-1" id="page_manage_attributes">
+    <div class="container-fluid">
+        <div class="row">
+            <div class="col rounded-start border-end border-5 bg-white">
+                <div class="row p-3 border-bottom border-2 d-flex flex-wrap align-items-center">
+                    <div class="fs-3 col-auto" data-i18n="ma_class">分类</div>
+                    <div class="col-auto d-flex gap-2 ms-auto">
+                        <button type="button" class="btn btn-outline-success btn-sm" 
+                        data-bs-toggle="modal" data-bs-target="#add_class_form" id="btn_show_classes_add" data-i18n="ma_new">新增</button>
+                        <button type="button" class="btn btn-outline-info btn-sm" id="btn_classes_manage" data-i18n="ma_manage">管理</button>
+                    </div>
+                </div>
+                <div class="row overflow-y-auto">
+                    <div class="list-group custom-list-group list-group-flush px-0" id="classes_area"><!--classes列表-->
+                        <!--<div class="list-group-item list-group-item-action px-4">test</div>-->
+                    </div>
+                </div>
+            </div>
+            <div class="col rounded-end bg-white">
+                <div class="row p-3 border-bottom border-2 d-flex flex-wrap align-items-center">
+                    <div class="fs-3 col-auto" data-i18n="ma_property">属性</div>
+                    <div class="col-auto d-flex gap-2 ms-auto">
+                        <button type="button" class="btn btn-outline-success btn-sm" 
+                        data-bs-toggle="modal" data-bs-target="#add_change_properties_form" id="btn_show_properties_add" data-i18n="ma_new">新增</button>
+                        <button type="button" class="btn btn-outline-info btn-sm" id="btn_properties_manage" data-i18n="ma_manage">管理</button>
+                    </div>
+                </div>
+                <div class="row overflow-y-auto">
+                    <div class="list-group custom-list-group list-group-flush px-0" id="properties_area"><!--properties列表-->
+                        <!--<div class="list-group-item list-group-item-action px-4">test</div>-->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!--class新增-->
+    <div class="modal fade" id="add_class_form" tabindex="-1" data-bs-backdrop="static" role="dialog">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h1 class="modal-title fs-5" data-i18n="ma_new_class">新增分类</h1>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" id="close_add_class_form"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="col">
+                        <label for="new_class_name" class="form-label" data-i18n="new_class_name">分类名称</label>
+                        <input type="text" class="form-control" id="new_class_name" required>
+                        <div class="invalid-feedback" id="new_class_name_feedback"></div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-success" id="btn_classes_add" data-i18n="btn_classes_add">提交</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!--properties新增与变更-->
+    <div class="modal fade" id="add_change_properties_form" tabindex="-1" data-bs-backdrop="static" role="dialog">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h1 class="modal-title fs-5" id="add_change_properties_form_title" data-i18n="add_change_properties_form_title">新增属性</h1>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" id="close_add_change_properties_form"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row mb-3">
+                        <label for="new_property_name" class="col-sm-2 col-form-label pt-1 text-center" data-i18n="new_property_name">名称</label>
+                        <div class="col-sm-10">
+                            <input type="text" class="form-control" id="new_property_name" required>
+                            <div class="invalid-feedback" id="new_property_name_feedback" data-i18n="new_property_name_feedback">
+                                名称已存在
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <label for="new_property_form" class="col-sm-2 col-form-lable pt-1 text-center" data-i18n="new_property_form">类型</label>
+                        <div class="col-sm-10">
+                            <select class="form-select" id="new_property_form" required>
+                                <option selected value="list" data-i18n="ma_str_formC">文字型</option>
+                                <option value="num" data-i18n="ma_num_formC">数值型</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <label for="new_property_range" class="col-sm-2 col-form-lable pt-1 text-center" data-i18n="new_property_range">范围</label>
+                        <div class="col-sm-10">
+                            <textarea class="form-control" id="new_property_range" rows="1" data-i18n="new_property_rangeP"></textarea>
+                            <!--"以“,”（中英均可）分隔，例：红,绿,蓝"-->
+                            <div class="invalid-feedback" id="new_property_range_feedback">
+                                无法解析的输入
+                            </div>
+                            <div class="container-fluid fs-6 text-body-tertiary" id="new_property_range_analysis" 
+                            data-i18n="new_property_range_analysis">识别到的内容：</div>
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <label for="new_property_comment" class="col-sm-2 col-form-lable pt-1 text-center" data-i18n="new_property_comment">备注</label>
+                        <div class="col-sm-10">
+                            <textarea class="form-control" id="new_property_comment" rows="3"></textarea>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-success" id="btn_property_add_change" data-i18n="btn_property_add_change">提交</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

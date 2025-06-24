@@ -1,0 +1,30 @@
+:root {
+    --HA-blue: #03a9f4;
+    --HA-bg: #fafafa;
+}
+
+.bg-blue {
+    background-color: var(--HA-blue);
+}
+
+.bg-white {
+    background-color: #fff;
+}
+
+.bg-main {
+    background-color: var(--HA-bg);
+}
+
+.custom-list-group {
+    --bs-list-group-active-bg: var(--HA-blue);
+    --bs-list-group-active-border-color: var(--HA-blue);
+}
+
+.custom-dropdown {
+    --bs-dropdown-link-active-bg: var(--HA-blue);
+}
+
+.accordion-button:not(.collapsed) {
+    color: black;
+    background-color: #e9ecef; /* 更改为你想要的颜色 */
+}
