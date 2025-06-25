@@ -85,23 +85,41 @@ def get_item(i_id):  # 获取物品信息
         return None
     
 
-def get_items_with_filter(name_like, i_class, is_virtual, expiration_time, classes=[]):  # 根据要求筛选符合的items
-    query = "SELECT id,name,class,properties,parent,img,comment,expiration_time FROM items WHERE 1=1"
+def get_items_with_filter(name_like, i_class, is_virtual, expiration_time, has_child, classes=[]):  # 根据要求筛选符合的items
+    query = """
+        SELECT 
+            items.id,
+            items.name,
+            items.class,
+            items.properties,
+            items.parent,
+            items.img,
+            items.comment,
+            items.expiration_time,
+            CASE WHEN father_info.father_id IS NOT NULL THEN 1 ELSE 0 END AS is_father
+        FROM items 
+        LEFT JOIN (
+            SELECT DISTINCT parent AS father_id FROM items
+        ) AS father_info ON items.id = father_info.father_id 
+        WHERE 1=1"""
     params = []
     if name_like != '':
-        query += ' AND name LIKE ?'
+        query += ' AND items.name LIKE ?'
         params.append(f'%{name_like}%')
     if i_class != '':
-        query += ' AND class=?'
+        query += ' AND items.class=?'
         params.append(i_class)
     if is_virtual != -1:
-        query += ' AND is_virtual=?'
+        query += ' AND items.is_virtual=?'
         params.append(is_virtual)
     if expiration_time != '':
-        query += " AND expiration_time<=? AND expiration_time<>''"
+        query += " AND items.expiration_time<=? AND items.expiration_time<>''"
         params.append(expiration_time)
+    if has_child != -1:
+        query += ' AND CASE WHEN father_info.father_id IS NOT NULL THEN 1 ELSE 0 END =?'
+        params.append(has_child)
     if len(classes) != 0:
-        query += ' ORDER BY CASE class'
+        query += ' ORDER BY CASE items.class'
         for class_index in range(len(classes)):
             query += f" WHEN '{classes[class_index]}' THEN {class_index+1}"
         query += ' ELSE 0 END'
@@ -118,7 +136,8 @@ def get_items_with_filter(name_like, i_class, is_virtual, expiration_time, class
                 'parent': i[4],
                 'img': i[5],
                 'comment': i[6],
-                'expiration_time': i[7]
+                'expiration_time': i[7],
+                'has_child': bool(i[8])
             }
         return ret
     except sqlite3.Error as e:

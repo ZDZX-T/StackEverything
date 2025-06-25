@@ -40,6 +40,7 @@ def vi_load_items_from_db(ev=None):  # 从数据库查询数据
     target_class = document['filter_class'].value
     target_is_virtual = document['filter_is_virtual'].value
     target_expiration_time = document['filter_expiration_time'].value
+    target_has_child = document['filter_has_child'].value
     def on_complete(req):
         global db_data
         document['filter_db_select'].disabled = False
@@ -58,7 +59,8 @@ def vi_load_items_from_db(ev=None):  # 从数据库查询数据
              data={'target_name': target_name, 
                    'target_class': target_class,
                    'target_is_virtual': target_is_virtual,
-                   'target_expiration_time': target_expiration_time}, 
+                   'target_expiration_time': target_expiration_time,
+                   'target_has_child': target_has_child}, 
              oncomplete=on_complete)
 
 

@@ -49,6 +49,18 @@
                         </div>
                         <div class="col-auto pe-4">
                             <div class="row">
+                                <label for="filter_has_child" class="col col-form-label p-1" data-i18n="filter_has_child">是否有子物品</label>
+                                <div class="col-auto p-0">
+                                    <select class="form-select pt-1 pb-1" id="filter_has_child">
+                                        <option value="-1" selected data-i18n="filter_null">空</option>
+                                        <option value="1" data-i18n="universal_yes">是</option>
+                                        <option value="0" data-i18n="universal_no">否</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-auto pe-4">
+                            <div class="row">
                                 <button class="btn btn-success pt-1 pb-1" type="button" id="filter_db_select" data-i18n="filter_db_select">查询</button>
                             </div>
                         </div>

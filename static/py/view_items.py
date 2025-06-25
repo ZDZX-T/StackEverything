@@ -19,14 +19,20 @@ def get_db_data():
     target_class = request.args.get('target_class', None)
     target_is_virtual = request.args.get('target_is_virtual', None)
     target_expiration_time = request.args.get('target_expiration_time', None)
-    if target_name is None or target_class is None or target_is_virtual is None or target_expiration_time is None:
+    target_has_child = request.args.get('target_has_child', None)
+    if target_name is None or target_class is None or target_is_virtual is None or target_expiration_time is None or target_has_child is None:
         return jsonify({'status': 'error','message': '缺失参数'})
     else:
         if target_class == '':  # 如果没有筛选class，那么将结果按照class排序
             classes = SQL.get_classes()
         else:
             classes = []
-        db_data = SQL.get_items_with_filter(target_name, target_class, int(target_is_virtual), target_expiration_time, classes)
+        db_data = SQL.get_items_with_filter(name_like=target_name, 
+                                            i_class=target_class, 
+                                            is_virtual=int(target_is_virtual), 
+                                            expiration_time=target_expiration_time, 
+                                            has_child=int(target_has_child),
+                                            classes=classes)
         if db_data is None:
             return jsonify({'status': 'error','message': i18n['vi_get_data_failed']})  # '拉取数据失败'
         else:

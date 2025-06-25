@@ -30,7 +30,7 @@ You can freely add classes and properties for items, making it easier to search 
 ![分类与属性](/i18n/img/README_attributes_en.png)  
 
 5. **🔎Convenience Item Search**  
-You can search items by name, class, whether they are virtual, and expiration date. When searching by class, you can further filter results by properties. The fields displayed after filtering can also be customized.  
+You can search items by name, class, whether they are virtual, expiration date and whether they have children. When searching by class, you can further filter results by properties. The fields displayed after filtering can also be customized.  
 ![物品检索](/i18n/img/README_search_en.png)  
 
 6. **🛜Access Anywhere on Local Network**  
@@ -74,3 +74,7 @@ Feel free to submit an Issue. If it's a problem, please describe what you were d
 ## Sponsorship
 If you like this project, you can scan the QR code below with WeChat to give the author some encouragement. Thank you!  
 <img src="/i18n/img/sponsor.jpg" alt="赞赏" width="300" height="300">
+
+
+## Change Log
+See [CHANGELOG.md](/CHANGELOG.md)
