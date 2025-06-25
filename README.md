@@ -23,7 +23,7 @@
 
 3. **🪄多样的移动模式**  
 除了普通的单个拖拽外，堆叠世界还提供了多选、快速插入、快速吸收、传送门四种增加便捷性的移动模式（详细操作说明请见系统内的“帮助”页面）。  
-<img src="/i18n/img/README_multi_quick.png" alt="多选快移展示" height="200" style="margin-left: 20px;">  
+<img src="/i18n/img/README_multi_quick.png" alt="多选快移展示" style="max-height: 200px; width: auto;">  
 
 4. **🎛️自定义分类和属性**  
 可以自由添加物品的分类和物品的属性，方便后续对物品进行检索。  
@@ -35,7 +35,7 @@
 
 6. **🛜局域网任意访问**  
 只要局域网内一台机器运行本软件，局域网内的任何设备上的浏览器都可以访问堆叠世界，发挥不同设备的长处。  
-<img src="/i18n/img/README_ethernet.png" alt="局域网访问" height="300" style="margin-left: 20px;">  
+<img src="/i18n/img/README_ethernet.png" alt="局域网访问" style="max-height: 300px; width: auto;">  
 
 
 ## 部署
