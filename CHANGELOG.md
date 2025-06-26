@@ -7,7 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## Fixed
+### Added
+
+* 增加更新说明。Add update notes.
+
+### Fixed
 
 * 更正帮助文档描述，`使用说明>物品浏览>数据库筛选设置`的第一段描述，“总共有四项可供筛选”更正为“总共有五项可供筛选”。Correction to the Help Document description: In the "Instructions > View Items > Database filter" section, the first paragraph currently states, "There are four filter options available" This should be corrected to: "There are five filter options available".
 

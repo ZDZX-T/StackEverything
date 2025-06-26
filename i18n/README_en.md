@@ -40,7 +40,8 @@ As long as one machine on the local network is running the software, any device 
 
 ## Deployment
 _⚠️**Security Warning**: Since this project does not implement an authentication mechanism and uses Flask as its default web server, **do NOT expose this service directly to the public internet**, as it may cause serious security risks._  
-<br>
+
+### First time use
 You can obtain this project via `git clone`, or download the latest or specific version from the `Releases` page. This project requires Python>=3.7. After downloading the code, install the required dependencies (flask and pillow) by running the following command in the project directory:  
 ```shell
 pip install -r requirements.txt
@@ -55,8 +56,18 @@ python StackEverything.py
 
 Visit [127.0.0.1:8456](http://127.0.0.1:8456) in your browser to open StackEverything. If accessing from another device, use `host-ip:8456`.  
 Once the page opens, click the “>” icon in the top-left corner to expand the sidebar menu, and navigate to the “Help Document” page to view the user guide.  
-<br>
-Some parameters are user-configurable, such as the language. For a full list of configurable parameters, please refer to [config.py](config.py).
+
+Some parameters are user-configurable, such as the language. For a full list of configurable parameters, please refer to [config.py](/config.py).
+
+### Update
+You need to protect two files and one folder:  
+1. `config.py`, this is your configuration file, provided by the code;
+2. `_StackEverything.db`, this is the database file, generated after the system runs;
+3. `user_image`, this is the folder that stores item images, also generated after the system runs.
+
+#### Manual
+Since 2 and 3 do not exist in the source code, you only need to rename the `config.py` file to prevent it from being overwritten, then overwrite the old code with the new version, and finally restore the original `config.py`.  
+_Memo: The Linux command for overwriting during extraction is `unzip -o xxx.zip`_
 
 
 ## FAQ
