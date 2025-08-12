@@ -1,6 +1,6 @@
 # StackEverything
 
-[切换至中文](../README.md)
+[切换至中文](../README.md)  
 [view on github](https://github.com/ZDZX-T/StackEverything) | [view on gitee](https://gitee.com/ZDZX-T/StackEverything)
 
 ## Introduction
@@ -60,10 +60,10 @@ _Memo: The Linux command for overwriting during extraction is `unzip -o xxx.zip`
 
 ## FAQ
 
-Q1: Does that mean I have to operate your system every time I take out a piece of clothing?
+Q1: Does that mean I have to operate your system every time I take out a piece of clothing?  
 A1: Not necessarily. For example, I keep my seasonal clothes in a separate pile, and I won’t update the system when I use them. However, during seasonal transitions, it's important to make sure the order of items in the system matches the real-world arrangement — otherwise the system loses its value.
 
-Q2: Isn't your system kind of "butter on bacon"?
+Q2: Isn't your system kind of "butter on bacon"?  
 A2: It really depends on personal needs. If you only have a small number of items and can easily remember where everything is, then using this system might indeed feel unnecessary. But when the number of items grows large enough, and the frequency of use becomes low enough, our memory just isn’t reliable anymore — and that’s when tools like this become useful. For example, do you really know what exactly is in that storage room at home right now? With this system, you will — and that’s exactly its purpose.
 
 ## Issues / Suggestions
