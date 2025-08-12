@@ -72,8 +72,8 @@ Feel free to submit an Issue. If it's a problem, please describe what you were d
 
 ## Sponsorship
 
-If you like this project, you can scan the QR code below with WeChat to give the author some encouragement. Thank you!
-`<img src="/i18n/img/sponsor.jpg" alt="赞赏" width="300" height="300">`
+If you like this project, you can scan the QR code below with WeChat to give the author some encouragement. Thank you!  
+<img src="/i18n/img/sponsor.jpg" alt="赞赏" width="300" height="300">
 
 ## Change Log
 
