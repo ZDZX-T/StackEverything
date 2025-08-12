@@ -4,7 +4,9 @@
 /请勿上传git/
 /_StackEverything.db
 /packRelease.py
+/config.py
 
 /.idea/
 /__pycache__/
 /SQLs/__pycache__/
+/static/py/__pycache__/

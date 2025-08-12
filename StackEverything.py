@@ -1,7 +1,11 @@
+import os
+import shutil
+if not os.path.isfile('config.py'):
+    shutil.copy('config_default.py', 'config.py')
+import config
+
 from flask import Flask, render_template, request, jsonify, send_from_directory
 import SQL
-import config
-import os
 import logging
 from logging.handlers import TimedRotatingFileHandler
 

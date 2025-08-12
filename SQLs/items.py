@@ -85,7 +85,7 @@ def get_item(i_id):  # 获取物品信息
         return None
     
 
-def get_items_with_filter(name_like, i_class, is_virtual, expiration_time, has_child, classes=[]):  # 根据要求筛选符合的items
+def get_items_with_filter(name_like, i_class, is_virtual, expiration_time, has_child, belong, classes=[]):  # 根据要求筛选符合的items
     query = """
         SELECT 
             items.id,
@@ -118,6 +118,10 @@ def get_items_with_filter(name_like, i_class, is_virtual, expiration_time, has_c
     if has_child != -1:
         query += ' AND CASE WHEN father_info.father_id IS NOT NULL THEN 1 ELSE 0 END =?'
         params.append(has_child)
+    if len(belong) != 1 or belong[0] != 0:
+        placeholder = ','.join(['?' for _ in belong])
+        query += f' AND items.parent IN ({placeholder})'
+        params += belong
     if len(classes) != 0:
         query += ' ORDER BY CASE items.class'
         for class_index in range(len(classes)):
@@ -143,6 +147,24 @@ def get_items_with_filter(name_like, i_class, is_virtual, expiration_time, has_c
     except sqlite3.Error as e:
         print('get_items_with_filter()发生错误，原始日志：', e)
         return None
+    
+
+def get_paths_with_belong(i_id: int):  # 根据id信息获取所有子路径（包括传入的i_id)（不包括叶子结点）
+    with conn:
+        c = conn.cursor()
+        c.execute('''SELECT DISTINCT parent FROM items''')
+        all_paths = {row[0] for row in c.fetchall()}  # AI注释是：使用集合提高查找效率
+        need_search = [i_id]
+        result = []
+        while len(need_search) != 0:
+            now_search = need_search.pop()
+            if now_search in all_paths:
+                result.append(now_search)
+            # 这里不用get_children()是因为只需要id且不需要排序，因此单独写一遍查询逻辑节省时间
+            c.execute('''SELECT id FROM items WHERE parent=?''', (now_search, ))
+            children = c.fetchall()
+            need_search.extend(row[0] for row in children)
+    return result
 
 
 def new_item(i_name, i_class, i_properties, i_is_virtual, i_parent, i_img, i_comment, i_expiration_time):  # 新建物品

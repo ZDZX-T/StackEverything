@@ -30,7 +30,7 @@ You can freely add classes and properties for items, making it easier to search 
 ![分类与属性](/i18n/img/README_attributes_en.png)  
 
 5. **🔎Convenience Item Search**  
-You can search items by name, class, whether they are virtual, expiration date and whether they have children. When searching by class, you can further filter results by properties. The fields displayed after filtering can also be customized.  
+You can search items by name, class, whether they are virtual, expiration date, whether they have children and location. When searching by class, you can further filter results by properties. The fields displayed after filtering can also be customized.  
 ![物品检索](/i18n/img/README_search_en.png)  
 
 6. **🛜Access Anywhere on Local Network**  
@@ -61,12 +61,12 @@ Some parameters are user-configurable, such as the language. For a full list of 
 
 ### Update
 You need to protect two files and one folder:  
-1. `config.py`, this is your configuration file, provided by the code;
+1. `config.py`, this is your configuration file, copied from config_default.py when the system runs for the first time;
 2. `_StackEverything.db`, this is the database file, generated after the system runs;
 3. `user_image`, this is the folder that stores item images, also generated after the system runs.
 
 #### Manual
-Since 2 and 3 do not exist in the source code, you only need to rename the `config.py` file to prevent it from being overwritten, then overwrite the old code with the new version, and finally restore the original `config.py`.  
+Since the files mentioned above do not exist in the source code, simply place the new version's zip package into the StackEverything's directory and extract it to complete the update.  
 _Memo: The Linux command for overwriting during extraction is `unzip -o xxx.zip`_
 
 

@@ -20,18 +20,29 @@ def get_db_data():
     target_is_virtual = request.args.get('target_is_virtual', None)
     target_expiration_time = request.args.get('target_expiration_time', None)
     target_has_child = request.args.get('target_has_child', None)
-    if target_name is None or target_class is None or target_is_virtual is None or target_expiration_time is None or target_has_child is None:
+    target_belong = request.args.get('target_belong', None)
+    if any(t is None for t in [target_name, target_class, target_is_virtual, target_expiration_time, target_has_child, target_belong]):
         return jsonify({'status': 'error','message': '缺失参数'})
     else:
         if target_class == '':  # 如果没有筛选class，那么将结果按照class排序
             classes = SQL.get_classes()
         else:
             classes = []
+        # 检验target_belong是否存在，并转换为id
+        target_belong_list = []
+        if target_belong != '':
+            target_belong_id = SQL.item_name2id(target_belong)
+            if target_belong_id == -1:
+                return jsonify({'status': 'error','message': '【{}】{}'.format(target_belong, i18n['vi_belong_not_exist'])})  # '路径名称不存在，请检查是否填写错误'
+            target_belong_list = SQL.get_paths_with_belong(target_belong_id)
+        else:
+            target_belong_list = [0]
         db_data = SQL.get_items_with_filter(name_like=target_name, 
                                             i_class=target_class, 
                                             is_virtual=int(target_is_virtual), 
                                             expiration_time=target_expiration_time, 
                                             has_child=int(target_has_child),
+                                            belong= target_belong_list,
                                             classes=classes)
         if db_data is None:
             return jsonify({'status': 'error','message': i18n['vi_get_data_failed']})  # '拉取数据失败'
