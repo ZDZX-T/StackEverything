@@ -13,12 +13,12 @@ With this system, you can track where each item is, like finding your clothes in
 
 ## Features
 
-1. **📁Easy-to-use UI**The main interface is designed similarly to Windows Explorer, which ensures that users are familiar with the operations such as directory switching.![UI展示](/i18n/img/README_UI.gif)
-2. **🕹️Intuitive Interaction**Drag and drop items to move them, with glowing indicators guiding precise operations.![移动展示](/i18n/img/README_move.gif)
-3. **🪄Multiple Movement Modes**In addition to basic single-item dragging, StackEverything provides four convenient movement modes: Multi, Insert, Absorb, and Portal. For detailed instructions, please refer to the "Help Document" page inside the system.<br/><img src="/i18n/img/README_multi_quick_en.png" alt="多选快移展示" height="200" style="margin-left: 20px;">
-4. **🎛️Custom Classes & Properties**You can freely add classes and properties for items, making it easier to search for them later.![分类与属性](/i18n/img/README_attributes_en.png)
-5. **🔎Convenience Item Search**You can search items by name, class, whether they are virtual, expiration date, whether they have children and location. When searching by class, you can further filter results by properties. The fields displayed after filtering can also be customized.![物品检索](/i18n/img/README_search_en.png)
-6. **🛜Access Anywhere on Local Network**As long as one machine on the local network is running the software, any device connected to the same network can access StackEverything through a web browser, allowing you to take advantage of each device's strengths.<br/><img src="/i18n/img/README_ethernet_en.png" alt="局域网访问" height="300" style="margin-left: 20px;">
+1. **📁Easy-to-use UI**<br/>The main interface is designed similarly to Windows Explorer, which ensures that users are familiar with the operations such as directory switching.<br/>![UI展示](/i18n/img/README_UI.gif)
+2. **🕹️Intuitive Interaction**<br/>Drag and drop items to move them, with glowing indicators guiding precise operations.<br/>![移动展示](/i18n/img/README_move.gif)
+3. **🪄Multiple Movement Modes**<br/>In addition to basic single-item dragging, StackEverything provides four convenient movement modes: Multi, Insert, Absorb, and Portal. For detailed instructions, please refer to the "Help Document" page inside the system.<br/><img src="/i18n/img/README_multi_quick_en.png" alt="多选快移展示" height="200" style="margin-left: 20px;">
+4. **🎛️Custom Classes & Properties**<br/>You can freely add classes and properties for items, making it easier to search for them later.<br/>![分类与属性](/i18n/img/README_attributes_en.png)
+5. **🔎Convenience Item Search**<br/>You can search items by name, class, whether they are virtual, expiration date, whether they have children and location. When searching by class, you can further filter results by properties. The fields displayed after filtering can also be customized.<br/>![物品检索](/i18n/img/README_search_en.png)
+6. **🛜Access Anywhere on Local Network**<br/>As long as one machine on the local network is running the software, any device connected to the same network can access StackEverything through a web browser, allowing you to take advantage of each device's strengths.<br/><img src="/i18n/img/README_ethernet_en.png" alt="局域网访问" height="300" style="margin-left: 20px;">
 
 ## Deployment
 
