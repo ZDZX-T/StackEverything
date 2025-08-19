@@ -43,7 +43,7 @@ python StackEverything.py
 Visit [127.0.0.1:8456](http://127.0.0.1:8456) in your browser to open StackEverything. If accessing from another device, use `host-ip:8456`.
 Once the page opens, click the “>” icon in the top-left corner to expand the sidebar menu, and navigate to the “Help Document” page to view the user guide.
 
-Some parameters are user-configurable, such as the language. For a full list of configurable parameters, please refer to [config.py](/config.py).
+Some parameters are user-configurable, such as the language. For a full list of configurable parameters, please refer to [config_default.py](/config_default.py).
 
 ### Update
 
